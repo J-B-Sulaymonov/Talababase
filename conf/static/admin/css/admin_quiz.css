@@ -1,0 +1,215 @@
+/* --- admin_quiz.css (YANGILANGAN - FULL WIDTH) --- */
+
+/* 1. UMUMIY VA KONTEYNERLAR */
+:root {
+    --primary-color: #0f172a;
+    --accent-color: #3b82f6;
+    --bg-card: #ffffff;
+    --border-radius: 12px;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Asosiy konteynerlarni majburiy 100% qilish */
+.djn-group-root,
+.djn-fieldset,
+.djn-module {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* 2. SAVOL KARTASI (CARD) */
+.djn-group-root .djn-inline-form {
+    background-color: var(--bg-card);
+    border: 1px solid #e2e8f0;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 25px !important;
+    padding: 25px !important;
+    width: 100% !important; /* To'liq ekran */
+    box-sizing: border-box !important;
+    display: block !important; /* Inline-blockni yo'qotish */
+}
+
+.djn-group-root h3 {
+    background: #f1f5f9;
+    color: var(--primary-color);
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 16px;
+    border-left: 5px solid var(--accent-color);
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* 3. INPUTLAR VA TEXTAREA */
+/* 3. INPUTLAR VA TEXTAREA (FIXED) */
+.form-row {
+    width: 100% !important;
+    padding: 10px 0 !important;
+    overflow: visible !important;
+}
+
+/* "Savol matni" maydonining tashqi qutisini (wrapper) majburiy ochish */
+.djn-inline-form .form-row.field-text {
+    display: block !important; /* Flexboxni o'chirish */
+    width: 100% !important;
+    float: none !important;
+}
+
+/* Inputni o'rab turgan divni 100% qilish (Asosiy muammo shu yerda edi) */
+.djn-inline-form .form-row.field-text > div {
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    display: block !important;
+    max-width: 100% !important;
+    flex: none !important;
+}
+
+/* Savol matni (Textarea) */
+.djn-group-root textarea {
+    width: 100% !important;       /* To'liq eniga */
+    max-width: 100% !important;
+    height: 70px !important;      /* Balandlik */
+    padding: 12px;
+    box-sizing: border-box !important;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: #f8fafc;
+    resize: vertical;
+    display: block !important;
+}
+
+.djn-group-root textarea:focus {
+    border-color: var(--accent-color);
+    background-color: #fff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Label (Savol matni yozuvi) ni chiroyli qilib tepaga olish */
+.djn-group-root .field-text label {
+    display: block !important;
+    width: 100% !important;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+    padding: 0 !important;
+}
+/* 4. JAVOBLAR JADVALI (INLINE TABLE) - FLEXBOX SYSTEM */
+
+/* Jadval foni */
+.djn-items {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px dashed #cbd5e1;
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* Sarlavha qismi (Table Header) */
+.djn-thead {
+    display: flex;
+    font-weight: bold;
+    color: #64748b;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Qator (Row) - Flexbox orqali boshqarish */
+.djn-tr {
+    display: flex !important; /* Flex qilish shart */
+    align-items: center;
+    gap: 15px; /* Elementlar orasidagi masofa */
+    background: white;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* Ustunlar (Columns) */
+.djn-td {
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* 1-USTUN: Javob matni (Cho'zilishi kerak) */
+.djn-td.field-text {
+    flex-grow: 1; /* Bo'sh joyni to'liq egallasin */
+    width: auto !important;
+}
+.djn-td.field-text input {
+    width: 100% !important; /* Input ham to'liq cho'zilsin */
+    min-width: 200px;
+}
+
+/* 2-USTUN: Ball (Kichkina bo'lishi kerak) */
+.djn-td.field-score {
+    width: 80px !important;
+    flex-shrink: 0; /* Siqilib qolmasin */
+}
+.djn-td.field-score input {
+    width: 100% !important;
+    text-align: center;
+}
+
+/* 3-USTUN: O'chirish tugmasi */
+.djn-td.delete {
+    width: auto;
+    margin-left: auto;
+}
+
+/* Inputlarning umumiy stili */
+input[type="text"], input[type="number"] {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    font-size: 14px;
+    height: 40px;
+    box-sizing: border-box;
+}
+input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+/* 5. TUGMALAR */
+.inline-deletelink {
+    background: #fee2e2;
+    color: #ef4444;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+.inline-deletelink:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* Qo'shish tugmasi */
+.djn-add-handler {
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    background-color: #dcfce7 !important;
+    color: #16a34a !important;
+    border: 1px dashed #86efac;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.djn-add-handler:hover {
+    background-color: #bbf7d0 !important;
+}

@@ -1,0 +1,83 @@
+/* Asosiy konteyner */
+#contract-info-bar {
+    display: flex;
+    flex-direction: column;        /* <--- MUHIM: Elementlarni ustma-ust joylash */
+    align-items: flex-start;       /* Chap tarafga tekislash */
+    justify-content: center;
+
+    background: #ffffff;           /* Oq fon */
+    border: 1px solid #dce4ec;
+    border-left: 5px solid #264b5d; /* Chap tarafda rangli chiziq */
+
+    padding: 15px 20px;
+    margin-top: 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+
+    width: 100%;
+    box-sizing: border-box;
+    gap: 12px;                     /* Qatorlar orasidagi masofa */
+}
+
+/* 1-QATOR: Talaba ismi */
+.student-name-section {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    width: 100%;                   /* To'liq kenglik */
+    border-bottom: 1px solid #eee; /* Pastki chiziq */
+    padding-bottom: 10px;          /* Chiziqdan masofa */
+}
+
+/* 2-QATOR: Moliya qismi */
+.finance-metrics {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 40px;                     /* Summalar orasidagi masofa (kengroq) */
+}
+
+/* Har bir ko'rsatkich bloki */
+.metric-item {
+    display: flex;
+    flex-direction: column;        /* Label tepada, summa pastda */
+    align-items: flex-start;
+}
+
+.m-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #95a5a6;                /* Och kulrang yozuv */
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.m-value {
+    font-size: 18px;               /* Raqamlar kattaroq */
+    font-weight: bold;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* Ajratuvchi chiziqcha (Kerak bo'lmasa olib tashlash mumkin) */
+.metric-separator {
+    display: none;                 /* Ikki qatorli dizaynda separator shart emas */
+}
+
+/* Ranglar */
+.v-contract { color: #2c3e50; }
+.v-paid     { color: #27ae60; }
+.v-debt     { color: #c0392b; }
+
+/* Mobil qurilmalar uchun */
+@media (max-width: 768px) {
+    .finance-metrics {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+}

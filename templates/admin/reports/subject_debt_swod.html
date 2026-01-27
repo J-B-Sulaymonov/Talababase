@@ -1,0 +1,636 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --bg-color: #f4f6f9;
+        --dark-btn-bg: #495057;
+        --dark-btn-hover: #343a40;
+        --green-btn: #10ac84;
+        --red-btn: #ff6b6b;
+    }
+
+    /* ASOSIY CONTAINER */
+    .report-container {
+        font-family: 'Inter', sans-serif;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+
+    /* HEADER */
+    .report-header {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #fff; padding: 20px 30px; border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;
+    }
+    .report-title h1 { font-size: 24px; font-weight: 700; color: var(--primary-color); margin: 0; }
+    .report-title p { margin: 5px 0 0; color: #7f8c8d; font-size: 14px; }
+
+    .header-actions { display: flex; gap: 15px; }
+    .action-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;
+        text-decoration: none; cursor: pointer; border: none; color: #fff !important;
+        transition: all 0.2s; line-height: 1;
+    }
+    .btn-print { background-color: #34495e; }
+    .btn-excel { background-color: #27ae60; }
+
+    /* FILTRLAR */
+    .filters-wrapper {
+        display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .custom-dropdown { position: relative; display: inline-block; }
+    .dropdown-btn {
+        background-color: var(--dark-btn-bg); color: white; padding: 0 15px;
+        font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
+        cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+        min-width: 160px; text-transform: uppercase; height: 40px; transition: background-color 0.2s;
+    }
+    .dropdown-btn:hover { background-color: var(--dark-btn-hover); }
+    .dropdown-content {
+        display: none; position: absolute; top: 45px; left: 0;
+        background-color: #fff; min-width: 230px; box-shadow: 0px 5px 15px rgba(0,0,0,0.15);
+        z-index: 100; border-radius: 8px; border: 1px solid #eee; overflow: hidden;
+    }
+    .show { display: block; }
+    .checkbox-list { max-height: 300px; overflow-y: auto; padding: 10px; }
+    .checkbox-item {
+        display: flex; align-items: center; gap: 10px; font-size: 13px; color: #34495e;
+        font-weight: 600; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.1s;
+    }
+    .checkbox-item:hover { background-color: #f8f9fa; }
+    .checkbox-item input[type="checkbox"], .checkbox-item input[type="radio"] {
+        width: 16px; height: 16px; cursor: pointer; accent-color: #3498db;
+    }
+    .dropdown-footer { display: flex; justify-content: space-between; padding: 10px; background-color: #f8f9fa; border-top: 1px solid #eee; gap: 10px; }
+    .footer-btn { flex: 1; padding: 8px; border: none; border-radius: 4px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+    .btn-clear { background-color: var(--red-btn); }
+    .btn-apply { background-color: var(--green-btn); }
+
+    /* JADVAL */
+    .table-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; width: 100%; }
+    .table-responsive { width: 100%; overflow-x: auto; overflow-y: auto; max-height: 75vh; position: relative; }
+
+    .custom-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 1500px; }
+
+    .custom-table thead th {
+        background-color: #2c3e50; color: #ffffff; text-align: center;
+        font-weight: 600; border: 1px solid rgba(255,255,255,0.1);
+        font-size: 12px; position: sticky; top: 0; z-index: 30; height: 50px;
+        vertical-align: middle;
+    }
+
+    /* Rangli headerlar */
+    .th-contract { background-color: #1e8449 !important; }
+    .th-paid { background-color: #2874a6 !important; }
+    .th-debt { background-color: #c0392b !important; }
+
+    .custom-table tbody td { padding: 8px 10px; border: 1px solid #e0e0e0; color: #2c3e50; vertical-align: middle; }
+    .text-center { text-align: center; } .text-right { text-align: right; } .text-bold { font-weight: 700; }
+    .row-total { background-color: #ecf0f1; font-weight: 700; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .badge-kunduzgi { background-color: #e8f5e9; color: #2e7d32; }
+    .badge-sirtqi { background-color: #e3f2fd; color: #1565c0; }
+    .badge-kechki { background-color: #fff3e0; color: #ef6c00; }
+
+    .money { font-family: 'Consolas', monospace; font-size: 18px; white-space: nowrap; }
+    .bg-green { background-color: #d4efdf; color: #145a32; }
+    .bg-blue { background-color: #d6eaf8; color: #154360; }
+    .bg-red { background-color: #fadbd8; color: #78281f; }
+
+    /* Footer sticky */
+    .grand-total td { position: sticky; bottom: 0; z-index: 20; background-color: #34495e; color: white; font-weight: bold; border-top: 2px solid #2c3e50; }
+    .grand-total tr:last-child td { background-color: #d6eaf8; color: #2c3e50; bottom: -35px; border-top: 1px solid #aaa; }
+
+    /* --- MODAL STYLES --- */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5); z-index: 2000;
+        align-items: center; justify-content: center;
+        backdrop-filter: blur(3px);
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal-container {
+        background: white; width: 95%; max-width: 1300px; height: 90vh;
+        border-radius: 12px; box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        display: flex; flex-direction: column; overflow: hidden;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .modal-header {
+        padding: 15px 25px; background: #2c3e50; color: white;
+        display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid #34495e;
+    }
+    .modal-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+    .close-modal {
+        background: none; border: none; color: white; font-size: 28px; cursor: pointer;
+        line-height: 1; opacity: 0.8; transition: 0.2s;
+    }
+    .close-modal:hover { opacity: 1; transform: scale(1.1); }
+
+    .modal-body { padding: 20px; overflow-y: auto; background: #f8f9fa; flex: 1; }
+
+    .modal-table {
+        width: 100%; border-collapse: collapse; background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .modal-table th {
+        position: sticky; top: 0; background: #e9ecef; color: #495057;
+        padding: 12px 15px; font-size: 12px; font-weight: 700; border-bottom: 2px solid #dee2e6;
+        text-align: center; z-index: 10; text-transform: uppercase;
+    }
+    .modal-table td {
+        padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle;
+        color: #333;
+    }
+    .modal-table tr:hover { background-color: #f1f3f5; }
+
+    /* Ichki fanlar jadvali */
+    .inner-subject-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        background-color: #fff;
+        border: 1px solid #eee;
+    }
+    .inner-subject-table th {
+        background-color: #f8f9fa;
+        color: #7f8c8d;
+        padding: 6px 10px;
+        font-weight: 600;
+        text-transform: none;
+        border-bottom: 1px solid #eee;
+        text-align: center;
+    }
+    .inner-subject-table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #f1f1f1;
+        color: #2c3e50;
+    }
+    .inner-subject-table tr:last-child td { border-bottom: none; }
+
+    .clickable-cell {
+        cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .clickable-cell:hover {
+        background-color: #e8f6fd !important; text-decoration: underline;
+    }
+    .debt-hint { cursor: help; }
+
+    @media print {
+        .report-header, .filters-wrapper, .back-link, .header-actions, button, a { display: none !important; }
+        .report-container { padding: 0; }
+        .table-card { box-shadow: none; }
+    }
+</style>
+
+<div class="report-container">
+
+    <div class="report-header">
+        <div class="report-title">
+            <h1>Fan Qarzdorligi Swod Hisoboti</h1>
+            <p>Fanlar kesimidagi hisoblangan qarzdorlik tahlili | Sana: {{ current_date }}</p>
+        </div>
+        <div class="header-actions">
+            <button onclick="window.print()" class="action-btn btn-print">
+                <i class="fas fa-print"></i> Chop etish
+            </button>
+            <a href="#" onclick="exportToExcel(event)" class="action-btn btn-excel">
+                <i class="fas fa-file-excel"></i> Excel yuklash
+            </a>
+        </div>
+    </div>
+
+    <form method="get" class="filters-wrapper" id="filterForm">
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('yearDropdown')">
+                O'QUV YILI <i class="fas fa-filter"></i>
+            </button>
+            <div id="yearDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'year')"> Barchasi
+                    </label>
+                    {% for y in filter_options.years %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="year" value="{{ y.id }}"
+                            {% if y.id|stringformat:"s" in selected_filters.year %}checked{% endif %}>
+                        {{ y.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('year')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('statusDropdown')">
+                STATUS <i class="fas fa-filter"></i>
+            </button>
+            <div id="statusDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'status')"> Jami
+                    </label>
+                    {% for code, name in filter_options.statuses %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="status" value="{{ code }}" {% if code in selected_filters.status %}checked{% endif %}> {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('status')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('formDropdown')">
+                TA'LIM SHAKLI <i class="fas fa-filter"></i>
+            </button>
+            <div id="formDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                     <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'form')"> Jami
+                    </label>
+                    {% for code, name in filter_options.forms %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="form" value="{{ code }}" {% if code in selected_filters.form %}checked{% endif %}> {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('form')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('courseDropdown')">
+                KURS <i class="fas fa-filter"></i>
+            </button>
+            <div id="courseDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'course')"> Jami
+                    </label>
+                    {% for code, name in filter_options.courses %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="course" value="{{ code }}" {% if code|stringformat:"i" in selected_filters.course %}checked{% endif %}> {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('course')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('subjectStatusDropdown')">
+                FAN HOLATI <i class="fas fa-book"></i>
+            </button>
+            <div id="subjectStatusDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item">
+                        <input type="radio" name="subject_status" value="all"
+                            {% if selected_filters.subject_status == 'all' or not selected_filters.subject_status %}checked{% endif %}>
+                        Barchasi
+                    </label>
+
+                    <label class="checkbox-item" style="color: #c0392b;">
+                        <input type="radio" name="subject_status" value="open"
+                            {% if selected_filters.subject_status == 'open' %}checked{% endif %}>
+                        Yopilmagan fanlar
+                    </label>
+
+                    <label class="checkbox-item" style="color: #27ae60;">
+                        <input type="radio" name="subject_status" value="closed"
+                            {% if selected_filters.subject_status == 'closed' %}checked{% endif %}>
+                        Yopilgan fanlar
+                    </label>
+                </div>
+                <div class="dropdown-footer">
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('dateDropdown')">
+                VAQT <i class="fas fa-calendar-alt"></i>
+            </button>
+            <div id="dateDropdown" class="dropdown-content">
+                <div style="padding: 15px;">
+                    <label style="font-size: 12px; color: #7f8c8d; font-weight: 600; display: block; margin-bottom: 5px;">
+                        Shu sanagacha bo'lgan holat:
+                    </label>
+                    <input type="date" name="date" class="date-input"
+                           value="{{ selected_filters.date|default:'' }}"
+                           style="width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px; box-sizing: border-box;">
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearDateSelection()">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 30px;">№</th>
+                        <th rowspan="2" style="min-width: 200px; text-align: left; padding-left: 5px;">Ta'lim yo'nalishi</th>
+                        <th rowspan="2" style="width: 80px;">Shakl</th>
+                        <th rowspan="2" style="width: 70px;">Kurs</th>
+
+                        <th rowspan="2" style="width: 70px;">Jami<br>Talaba</th>
+
+                        <th rowspan="2" style="width: 90px; background-color: #fce4ec; color: #c2185b;">Qarzdor<br>talabalar</th>
+
+                        <th rowspan="2" style="width: 80px; background-color: #fff3e0; color: #e67e22;">Qarzdor<br>fanlar</th>
+
+                        <th rowspan="2" class="th-contract">Jami Hisoblangan Qarz</th>
+                        <th rowspan="2" class="th-paid">To'langan Summa</th>
+                        <th rowspan="2" class="th-debt">Qoldiq Qarz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report_data %}
+                        {% for row in item.rows %}
+                        <tr class="{% if row.is_total %}row-total{% endif %}">
+                            {% if forloop.first %}
+                                <td rowspan="{{ item.rowspan }}" class="text-center text-bold">{{ item.index }}</td>
+                                <td rowspan="{{ item.rowspan }}" class="text-bold" style="text-align: left !important; padding-left: 5px; white-space: normal; max-width: 200px;">{{ item.spec_name }}</td>
+                            {% endif %}
+                            <td class="text-center">{% if row.is_total %}<b>Jami</b>{% else %}<span class="badge badge-{{ row.form }}">{{ row.form }}</span>{% endif %}</td>
+                            <td class="text-center">{% if row.is_total %}-{% else %}{{ row.course }}{% endif %}</td>
+
+                            <td class="text-center text-bold">{{ row.vals.count }}</td>
+
+                            <td class="text-center text-bold clickable-cell"
+                                onclick="openModal('{{ row.vals.row_id }}', '{{ item.spec_name }} - {{ row.form }} - {{ row.course }}')"
+                                style="color: {% if row.vals.debtors_count > 0 %}#c0392b{% else %}#27ae60{% endif %}; font-size: 14px;">
+                                {{ row.vals.debtors_count }}
+                                {% if row.vals.debtors_count > 0 %}
+                                    <i class="fas fa-external-link-alt" style="font-size: 10px; margin-left: 3px; opacity: 0.7;"></i>
+                                {% endif %}
+                            </td>
+
+                            <td class="text-center text-bold debt-hint"
+                                style="color: #e67e22;"
+                                title="{{ row.vals.debt_subjects_str }}">
+                                {% if row.vals.debt_subject_count > 0 %}
+                                    {{ row.vals.debt_subject_count }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+
+                            <td class="text-right money {% if row.is_total %}bg-green{% endif %}">
+                                {{ row.vals.contract|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-right money {% if row.is_total %}bg-blue{% endif %}">
+                                {{ row.vals.paid|floatformat:0|intcomma }}
+                            </td>
+                            <td class="text-right money {% if row.is_total %}bg-red{% endif %}">
+                                {{ row.vals.debt|floatformat:0|intcomma }}
+                            </td>
+
+                            <td style="display: none;">
+                                <div id="data-{{ row.vals.row_id }}">
+                                    <table class="modal-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px;">№</th>
+                                                <th style="width: 250px; text-align: left;">F.I.SH / ID</th>
+                                                <th style="text-align: center;">Fanlar bo'yicha hisob-kitob</th>
+                                                <th style="width: 140px; text-align: right;">Jami Qarz</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for st in row.vals.debtor_students_list %}
+                                            <tr>
+                                                <td class="text-center">{{ forloop.counter }}</td>
+                                                <td>
+                                                    <div style="font-weight: 700; color: #2c3e50;">{{ st.full_name }}</div>
+                                                    <div style="font-size: 11px; color: #7f8c8d; margin-top: 3px;">
+                                                        ID: {{ st.hemis_id|default:"-" }}
+                                                    </div>
+                                                </td>
+                                                <td style="padding: 5px;">
+                                                    <table class="inner-subject-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th style="text-align: left;">Fan nomi</th>
+                                                                <th style="width: 110px; text-align: right;">Hisoblangan</th>
+                                                                <th style="width: 110px; text-align: right;">To'langan</th>
+                                                                <th style="width: 110px; text-align: right;">Qarzi</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for subj in st.subjects %}
+                                                            <tr style="{% if subj.is_closed %}background-color: #f0fff4;{% endif %}">
+                                                                <td style="text-align: left;">
+                                                                    {{ subj.subject }}
+                                                                    {% if subj.is_closed %}
+                                                                        <i class="fas fa-check-circle" style="color: #27ae60; font-size: 10px; margin-left: 5px;"></i>
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td style="text-align: right; font-family: 'Consolas', monospace;">
+                                                                    {{ subj.amount|floatformat:0|intcomma }}
+                                                                </td>
+                                                                <td style="text-align: right; font-family: 'Consolas', monospace; color: #2980b9;">
+                                                                    {{ subj.paid|floatformat:0|intcomma }}
+                                                                </td>
+                                                                <td style="text-align: right; font-family: 'Consolas', monospace; font-weight: bold; color: {% if subj.is_closed %}#27ae60{% else %}#c0392b{% endif %};">
+                                                                    {{ subj.debt|floatformat:0|intcomma }}
+                                                                </td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                                <td class="text-right" style="font-family: 'Consolas', monospace; font-weight: 700; color: #c0392b; font-size: 14px;">
+                                                    {{ st.total_debt|floatformat:0|intcomma }}
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="4" class="text-center" style="padding: 30px; color: #999;">
+                                                    <i class="fas fa-check-circle" style="font-size: 40px; color: #27ae60; margin-bottom: 10px;"></i><br>
+                                                    Ushbu guruhda qarzdorlik mavjud emas!
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% empty %}
+                         <tr><td colspan="10" class="text-center">Ma'lumot topilmadi</td></tr>
+                    {% endfor %}
+                </tbody>
+                 <tfoot class="grand-total">
+                    <tr>
+                        <td colspan="4" class="text-right">UMUMIY JAMI:</td>
+                        <td class="text-center">{{ grand_total.count }}</td>
+                        <td class="text-center" style="color: #ff8a80;">{{ grand_total.debtors_count }}</td>
+                        <td class="text-center">{{ grand_total.debt_subject_count }}</td>
+                        <td class="text-right money">{{ grand_total.contract|floatformat:0|intcomma }}</td>
+                        <td class="text-right money">{{ grand_total.paid|floatformat:0|intcomma }}</td>
+                        <td class="text-right money">{{ grand_total.debt|floatformat:0|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="7" class="text-right" style="border-top: none;">FOIZ KO'RSATGICHI:</td>
+                        <td class="text-right">100%</td>
+                        <td class="text-right">{{ grand_total_percent.paid }}</td>
+                        <td class="text-right">{{ grand_total_percent.debt }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="back-link" style="margin-top: 20px;">
+        <a href=".." style="color: #7f8c8d; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-arrow-left"></i> Orqaga
+        </a>
+    </div>
+</div>
+
+<div class="modal-overlay" id="detailModal">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="modalTitle">Batafsil ma'lumot</h2>
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalContent">
+            </div>
+    </div>
+</div>
+
+<script>
+    // Raqamlarni formatlash: Faqat vergullarni bo'sh joyga almashtiramiz
+    document.addEventListener("DOMContentLoaded", function() {
+        replaceCommasWithSpaces(document);
+    });
+
+    function replaceCommasWithSpaces(container) {
+        const moneyCells = container.querySelectorAll('.money');
+        moneyCells.forEach(cell => {
+             // Django intcomma raqamni '2,250,000' shaklida beradi (tiyinlar yo'q)
+             // Biz shunchaki ',' ni ' ' (space) ga almashtiramiz
+             cell.innerText = cell.innerText.replace(/,/g, ' ');
+        });
+    }
+
+    // Modalni ochish funksiyasi
+    function openModal(rowId, title) {
+        const sourceData = document.getElementById('data-' + rowId);
+        const modalContent = document.getElementById('modalContent');
+        const modalTitle = document.getElementById('modalTitle');
+        const modal = document.getElementById('detailModal');
+
+        if (sourceData) {
+            modalTitle.innerText = title;
+            modalContent.innerHTML = sourceData.innerHTML;
+
+            // Modal ichidagi raqamlarni ham formatlaymiz
+            const modalCells = modalContent.querySelectorAll('td');
+            modalCells.forEach(td => {
+                 if(td.style.fontFamily.includes('Consolas')) {
+                     td.innerText = td.innerText.replace(/,/g, ' ');
+                 }
+            });
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error("Ma'lumot topilmadi: data-" + rowId);
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('detailModal').classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+
+    document.getElementById('detailModal').addEventListener('click', function(e) {
+        if (e.target === this) { closeModal(); }
+    });
+
+    // Dropdown Logic
+    function toggleDropdown(id) {
+        var dropdowns = document.getElementsByClassName("dropdown-content");
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].id !== id) { dropdowns[i].classList.remove('show'); }
+        }
+        document.getElementById(id).classList.toggle("show");
+    }
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.dropdown-btn') && !event.target.matches('.dropdown-btn *')) {
+            var dropdowns = document.getElementsByClassName("dropdown-content");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show') && !openDropdown.contains(event.target)) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+    }
+
+    function clearSelection(name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => { cb.checked = false; });
+        const headerCheckbox = document.querySelector(`input[onchange="toggleAll(this, '${name}')"]`);
+        if(headerCheckbox) headerCheckbox.checked = false;
+    }
+
+    function clearDateSelection() {
+        const input = document.querySelector('input[name="date"]');
+        if(input) input.value = '';
+    }
+
+    function toggleAll(source, name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => { cb.checked = source.checked; });
+    }
+
+    function exportToExcel(e) {
+        e.preventDefault();
+        const searchParams = window.location.search;
+        window.location.href = 'export/' + searchParams;
+    }
+</script>
+{% endblock %}

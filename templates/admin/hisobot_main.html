@@ -1,0 +1,170 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    /* Asosiy o'ram */
+    .dashboard-wrapper {
+        font-family: 'Inter', sans-serif;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 30px;
+    }
+
+    /* Sarlavha */
+    .dashboard-header {
+        margin-bottom: 40px;
+    }
+    .dashboard-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0 0 10px 0;
+    }
+    .dashboard-header p {
+        font-size: 15px;
+        color: #7f8c8d;
+        margin: 0;
+    }
+
+    /* GRID TIZIMI - 4 ta ustun */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr); /* 4 ta ustun */
+        gap: 24px;
+        width: 100%;
+    }
+
+    /* Karta dizayni */
+    .report-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 25px;
+        text-decoration: none;
+        color: inherit;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-height: 220px; /* Bir xil balandlik */
+    }
+
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+    }
+
+    /* Icon doirasi */
+    .icon-box {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+
+    /* Ranglar */
+    /* 1. Contingent (Ko'k) */
+    .card-contingent .icon-box { background: #e3f2fd; color: #1976d2; }
+    /* 2. Kurs Swod (Yashil) */
+    .card-swod .icon-box { background: #e8f5e9; color: #2e7d32; }
+    /* 3. Tsch Analiz (Sariq) */
+    .card-analiz .icon-box { background: #fff3e0; color: #f57c00; }
+    /* 4. Fan Qarzi (Qizil/Pushti) */
+    .card-debt .icon-box { background: #fce4ec; color: #c2185b; }
+
+
+    /* Matnlar */
+    .card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #34495e;
+        margin-bottom: 8px;
+    }
+    .card-desc {
+        font-size: 12px;
+        color: #7f8c8d;
+        line-height: 1.4;
+        margin-bottom: 15px;
+    }
+
+    /* Link/Button ko'rinishi */
+    .action-text {
+        margin-top: auto;
+        font-size: 13px;
+        font-weight: 600;
+        color: #3498db;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    @media (max-width: 1200px) {
+        .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .dashboard-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="dashboard-wrapper">
+
+    <div class="dashboard-header">
+        <h1>{{ title }}</h1>
+        <p>Talabalar va to'lovlar monitoringi</p>
+    </div>
+
+    <div class="dashboard-grid">
+
+        <a href="contingent/" class="report-card card-contingent">
+            <div class="icon-box"><i class="fas fa-users"></i></div>
+            <div class="card-title">Kontingent</div>
+            <div class="card-desc">Talabalar soni va taqsimoti</div>
+            <div class="action-text">Kirish <i class="fas fa-arrow-right"></i></div>
+        </a>
+
+        <a href="kurs-swod/" class="report-card card-swod">
+            <div class="icon-box"><i class="fas fa-list-alt"></i></div>
+            <div class="card-title">Kontrakt Swod</div>
+            <div class="card-desc">Kontrakt kesimida ma'lumot</div>
+            <div class="action-text">Kirish <i class="fas fa-arrow-right"></i></div>
+        </a>
+
+        <a href="subject-debt-swod/" class="report-card card-debt">
+            <div class="icon-box"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="card-title">Fan Qarzi Swod</div>
+            <div class="card-desc">Fan qarzdorligi bo'yicha yig'ma tahlil</div>
+            <div class="action-text">Kirish <i class="fas fa-arrow-right"></i></div>
+        </a>
+        <a href="internal-grant/" class="report-card card-analiz" >
+            <div class="icon-box" style="background: #fadbd8; color: #c0392b;">
+                <i class="fas fa-hand-holding-usd"></i></div>
+            <div class="card-title">Ichki Grant</div>
+            <div class="card-desc">Grant va chegirmalar tahlili</div>
+            <div class="action-text">Kirish <i class="fas fa-arrow-right"></i></div>
+        </a>
+
+        <a href="tsch-analiz/" class="report-card card-analiz">
+            <div class="icon-box"><i class="fas fa-chart-pie"></i></div>
+            <div class="card-title">TSCH Analiz</div>
+            <div class="card-desc">To'lov va qarzdorlik tahlili</div>
+            <div class="action-text">Kirish <i class="fas fa-arrow-right"></i></div>
+        </a>
+
+
+    </div>
+</div>
+
+{% endblock %}

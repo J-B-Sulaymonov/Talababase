@@ -1,0 +1,36 @@
+/* Jazzmin mavzusi uchun maxsus scroll */
+
+/* 1. Jadvalni o'rab turgan konteyner (Bootstrap klassi) */
+.table-responsive {
+    max-height: 550px !important; /* Balandlik */
+    overflow-y: auto !important;  /* Scroll */
+    border-bottom: 2px solid #343a40;
+    position: relative;
+}
+
+/* 2. Sarlavhani qotirish (Sticky Header) */
+.table-responsive table thead th {
+    position: sticky !important;
+    top: 0 !important;
+    background-color: #343a40 !important; /* Jazzmin qora sarlavha rangi */
+    color: #ffffff !important;            /* Oq yozuv */
+    z-index: 100;                         /* Ustma-ust turganda eng tepada */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Soya */
+    border-top: none !important;
+}
+
+/* 3. Scrollbar dizayni (Chrome/Safari uchun) */
+.table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

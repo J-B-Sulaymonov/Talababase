@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ quiz.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-main);
+            user-select: none; /* Matnni belgilashni taqiqlash */
+        }
+
+        .quiz-container {
+            width: 100%;
+            max-width: 700px;
+            padding: 20px;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-bottom: 30px;
+        }
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        /* Savol Kartasi */
+        .question-card {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+            display: none; /* Barchasini yashiramiz, JS ochadi */
+            animation: fadeIn 0.4s ease;
+        }
+
+        /* Faol karta ko'rinishi uchun klass */
+        .question-card.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .question-text {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            line-height: 1.4;
+            color: var(--text-main);
+        }
+
+        /* Javob Variantlari */
+        .options-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 15px;
+        }
+
+        /* Django radiolarini yashirish va labelni chiroyli qilish */
+        .options-list li {
+            position: relative;
+        }
+
+        /* Inputni butunlay yashiramiz */
+        .options-list input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* Label dizayni */
+        .options-list label {
+            display: flex;
+            align-items: center;
+            padding: 18px 20px;
+            background: #f1f5f9;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .options-list label:hover {
+            background: #e2e8f0;
+        }
+
+        /* Bosilganda (Checked holat JS orqali boshqariladi, lekin vizual effekt uchun) */
+        .options-list label:active {
+            transform: scale(0.98);
+        }
+
+        /* Variant harfi (A, B, C...) */
+        .option-key {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: white;
+            color: var(--text-muted);
+            border-radius: 8px;
+            margin-right: 15px;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Loader (Yuborilayotganda) */
+        .loader-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            flex-direction: column;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid #e2e8f0;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="quiz-container">
+
+        <div class="progress-container">
+            <div class="progress-info">
+                <span>Savol <span id="current-q-num">1</span> / {{ form.fields|length }}</span>
+                <span>{{ employee.first_name }} {{ employee.last_name }}</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <form method="post" id="quizForm">
+            {% csrf_token %}
+
+            {% for field in form %}
+            <div class="question-card" id="step-{{ forloop.counter0 }}">
+                <div class="question-text">
+                    {{ field.label }}
+                </div>
+
+                <ul class="options-list">
+                    {% for widget in field %}
+                    <li>
+                        {{ widget.tag }}
+                        <label for="{{ widget.id_for_label }}" onclick="handleSelection(this, {{ forloop.parentloop.counter0 }})">
+                            <span class="option-key">{{ forloop.counter|add:"64"|stringformat:"c" }}</span> {{ widget.choice_label }}
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                {% if field.errors %}
+                    <div style="color: red; margin-top: 10px;">{{ field.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" id="submitBtn" style="display: none;">Yuborish</button>
+        </form>
+    </div>
+
+    <div class="loader-overlay" id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight: 600; color: #334155;">Natijalar hisoblanmoqda...</div>
+    </div>
+
+    <script>
+        // O'zgaruvchilar
+        let currentStep = 0;
+        const totalSteps = {{ form.fields|length }};
+        const cards = document.querySelectorAll('.question-card');
+        const progressBar = document.getElementById('progress-fill');
+        const currentQNum = document.getElementById('current-q-num');
+        const loader = document.getElementById('loader');
+        const form = document.getElementById('quizForm');
+
+        // Boshlanishida birinchi savolni ochish
+        showStep(currentStep);
+
+        function showStep(index) {
+            // Barcha kartalarni yashirish
+            cards.forEach(card => card.classList.remove('active'));
+
+            // Keraklisini ochish
+            if (cards[index]) {
+                cards[index].classList.add('active');
+            }
+
+            // Progress barni yangilash
+            const percent = ((index + 1) / totalSteps) * 100;
+            progressBar.style.width = percent + '%';
+            currentQNum.innerText = index + 1;
+        }
+
+        function handleSelection(label, stepIndex) {
+            // Agar foydalanuvchi eski savolni bosgan bo'lsa
+            if (stepIndex !== currentStep) return;
+
+            // Vizual effekt: Tanlangan variantni ajratib ko'rsatish
+            const parentUl = label.closest('ul');
+            parentUl.querySelectorAll('label').forEach(l => {
+                l.style.background = '#f1f5f9';
+                l.style.color = '#334155';
+                l.style.borderColor = 'transparent';
+            });
+
+            // Tanlanganga rang berish
+            label.style.background = '#eff6ff';
+            label.style.color = '#3b82f6';
+            label.style.borderColor = '#3b82f6';
+
+            // Kichik pauza bilan keyingi savolga o'tish
+            setTimeout(() => {
+                nextQuestion();
+            }, 400);
+        }
+
+        function nextQuestion() {
+            currentStep++;
+
+            if (currentStep < totalSteps) {
+                // Keyingi savolga o'tish
+                showStep(currentStep);
+            } else {
+                // Test tugadi
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            // Loader ekranini ko'rsatish
+            loader.style.display = 'flex';
+            // Formani majburan yuborish
+            form.submit();
+        }
+
+        // Orqaga qaytish tugmasini (Browser Back) bloklash
+        history.pushState(null, null, location.href);
+        window.onpopstate = function () {
+            history.go(1);
+        };
+
+    </script>
+</body>
+</html>

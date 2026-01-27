@@ -1,0 +1,209 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* App ichidagi modellar ro'yxatini o'nga surish */
+    /* 1. Sidebar ichidagi gorizontal scrollni butkul yo'qotish */
+    .main-sidebar {
+        overflow-x: hidden !important;
+    }
+
+    /* 2. Sub-menu konteyneridan marginni olib tashlaymiz */
+    .nav-sidebar .nav-treeview {
+        padding-left: 0 !important;
+        margin-left: 0 !important; /* Scrollni keltirib chiqargan qism */
+        border-left: none !important;
+    }
+
+    /* 3. Faqat ichki linklarni (matn va iconni) xavfsiz o'nga surish */
+    .nav-sidebar .nav-treeview .nav-item .nav-link {
+        padding-left: 2.5rem !important; /* Linkning o'zini ichkaridan surish */
+        width: 100%;
+        display: flex;
+        align-items: center;
+        transition: background 0.3s;
+    }
+
+    /* 4. Sub-menyu ichidagi ikonkalarni biroz kichraytirish */
+    .nav-sidebar .nav-treeview .nav-link i {
+        margin-right: 10px !important;
+        font-size: 0.8rem !important;
+        width: 20px;
+        text-align: center;
+    }
+
+
+    /* --- NAVBAR ICON STYLES --- */
+    .birthday-bell-item .nav-link { position: relative; padding-top: 15px !important; }
+    .birthday-badge {
+        position: absolute; top: 5px; right: 0px; background: #ef4444; color: white;
+        border-radius: 50%; padding: 2px 5px; font-size: 10px; font-weight: bold;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .b-item { padding: 10px 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f5f9; color: #334155; text-decoration: none !important; }
+    .b-item:hover { background: #f1f5f9; }
+    .b-item img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+    .text-today { color: #dc2626; font-weight: bold; }
+    .text-tomorrow { color: #d97706; }
+
+    /* --- MODAL STYLES --- */
+    .confetti-modal-header {
+        background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+        color: white; text-align: center; border-radius: 5px 5px 0 0;
+    }
+    .b-modal-item {
+        display: flex; align-items: center; gap: 15px; padding: 15px;
+        background: #fff; border: 1px solid #fecaca; border-radius: 12px;
+        margin-bottom: 12px; text-decoration: none !important; color: #333;
+        transition: transform 0.2s;
+    }
+    .b-modal-item:hover { transform: translateY(-2px); background: #fff1f2; }
+    .b-modal-img { width: 60px; height: 60px; border-radius: 50%; border: 3px solid #fff; object-fit: cover; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+
+    /* Z-INDEX FIX: Parda modalning ustiga chiqib qolmasligi uchun */
+    .modal-backdrop {
+        z-index: 1040 !important;
+        opacity: 0.5 !important;
+        background-color: #000 !important;
+    }
+    .modal {
+        z-index: 1050 !important;
+    }
+</style>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+{% if is_kadr_member %}
+{% if notify_birthdays_count > 0 %}
+
+<div id="birthday-notification-content" style="display: none;">
+    <li class="nav-item dropdown birthday-bell-item">
+        <a class="nav-link" data-toggle="dropdown" href="#" aria-expanded="false">
+            <i class="fas fa-birthday-cake fa-lg" style="color: #f59e0b;"></i>
+            <span class="birthday-badge">{{ notify_birthdays_count }}</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right" style="right: 0px; min-width: 280px;">
+            <span class="dropdown-item dropdown-header">Tug'ilgan kunlar ({{ notify_birthdays_count }})</span>
+            {% if notify_birthdays_today %}
+                <div style="padding: 5px 15px; background: #fee2e2; color: #b91c1c; font-weight: bold; font-size: 11px;">BUGUN</div>
+                {% for emp in notify_birthdays_today %}
+                <a href="{% url 'admin:kadrlar_employee_change' emp.id %}" class="b-item">
+                    {% if emp.photo %}<img src="{{ emp.photo.url }}">{% else %}<i class="fas fa-user-circle fa-2x"></i>{% endif %}
+                    <span>{{ emp.last_name }} {{ emp.first_name }}</span>
+                </a>
+                {% endfor %}
+            {% endif %}
+            {% if notify_birthdays_tomorrow %}
+                <div style="padding: 5px 15px; background: #ffedd5; color: #c2410c; font-weight: bold; font-size: 11px;">ERTAGA</div>
+                {% for emp in notify_birthdays_tomorrow %}
+                <a href="{% url 'admin:kadrlar_employee_change' emp.id %}" class="b-item">
+                    {% if emp.photo %}<img src="{{ emp.photo.url }}">{% else %}<i class="fas fa-user-circle fa-2x"></i>{% endif %}
+                    <span>{{ emp.last_name }} {{ emp.first_name }}</span>
+                </a>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </li>
+</div>
+
+<div class="modal fade" id="autoBirthdayModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: none;">
+            <div class="modal-header confetti-modal-header">
+                <h5 class="modal-title" style="width: 100%; font-weight: bold;">
+                    <i class="fas fa-gift"></i> Tug'ilgan kunlar!
+                </h5>
+            </div>
+            <div class="modal-body" style="background-color: #fff7ed; padding: 25px;">
+
+                {% if notify_birthdays_today %}
+                    <h6 style="color: #dc2626; font-weight: bold; margin-bottom: 15px;">🎉 Bugun ({{ notify_birthdays_today|length }} nafar):</h6>
+                    {% for emp in notify_birthdays_today %}
+                    <a href="{% url 'admin:kadrlar_employee_change' emp.id %}" class="b-modal-item">
+                        {% if emp.photo %}<img src="{{ emp.photo.url }}" class="b-modal-img">{% else %}<div class="b-modal-img" style="background:#ddd; display:flex; justify-content:center; align-items:center; font-size:24px;"><i class="fas fa-user"></i></div>{% endif %}
+                        <div style="flex-grow: 1;">
+                            <h5 style="margin: 0; font-weight: bold; color: #b91c1c;">{{ emp.last_name }} {{ emp.first_name }}</h5>
+                            <small>{{ emp.department.name|default:"-" }}</small>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% endif %}
+
+                {% if notify_birthdays_tomorrow %}
+                    <h6 style="color: #d97706; font-weight: bold; margin-top: 20px; margin-bottom: 15px;">🔔 Ertaga ({{ notify_birthdays_tomorrow|length }} nafar):</h6>
+                    {% for emp in notify_birthdays_tomorrow %}
+                    <a href="{% url 'admin:kadrlar_employee_change' emp.id %}" class="b-modal-item" style="border-color: #fed7aa;">
+                        {% if emp.photo %}<img src="{{ emp.photo.url }}" class="b-modal-img">{% else %}<div class="b-modal-img" style="background:#ddd; display:flex; justify-content:center; align-items:center; font-size:24px;"><i class="fas fa-user"></i></div>{% endif %}
+                        <div style="flex-grow: 1;">
+                            <h5 style="margin: 0; font-weight: bold; color: #c2410c;">{{ emp.last_name }} {{ emp.first_name }}</h5>
+                            <small>{{ emp.department.name|default:"-" }}</small>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% endif %}
+
+            </div>
+            <div class="modal-footer" style="background: #fff; justify-content: center;">
+                <button type="button" class="btn btn-danger" data-dismiss="modal" style="border-radius: 20px; padding: 10px 30px;">
+                    <i class="fas fa-check"></i> Tanishib chiqdim
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Navbar menyuni joylashtirish
+        var navbar = document.querySelector('.navbar-nav.ml-auto');
+        var content = document.getElementById('birthday-notification-content');
+        if (navbar && content) {
+            navbar.insertBefore(content.firstElementChild, navbar.firstChild);
+        }
+
+        // 2. Modalni BODY ga ko'chirish (Parda muammosi uchun yechim)
+        var modalElement = document.getElementById('autoBirthdayModal');
+        if (modalElement) {
+            document.body.appendChild(modalElement);
+        }
+
+        // 3. Modalni ochish (Faqat 1 marta sessiya davomida)
+        var alreadyShown = sessionStorage.getItem('birthday_modal_shown');
+
+        if (!alreadyShown) {
+            var checkJquery = setInterval(function() {
+                if (typeof $ !== 'undefined') {
+                    clearInterval(checkJquery);
+                    $('#autoBirthdayModal').modal('show');
+
+                    // Modal ochilgandan keyin "ko'rildi" belgisini qo'yamiz
+                    sessionStorage.setItem('birthday_modal_shown', 'true');
+
+                } else if (typeof django !== 'undefined' && typeof django.jQuery !== 'undefined') {
+                    clearInterval(checkJquery);
+                    django.jQuery('#autoBirthdayModal').modal('show');
+
+                    // Modal ochilgandan keyin "ko'rildi" belgisini qo'yamiz
+                    sessionStorage.setItem('birthday_modal_shown', 'true');
+                }
+            }, 100);
+        }
+    });
+</script>
+{% endif %}
+{% endif %}
+{% endblock %}

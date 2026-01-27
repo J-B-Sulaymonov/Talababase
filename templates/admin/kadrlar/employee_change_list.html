@@ -1,0 +1,541 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static humanize %}
+
+{% block extrahead %}
+{{ block.super }}
+
+{# --- 1. MA'LUMOTLAR MANBASI --- #}
+<script id="departments-data" type="application/json">
+    {{ departments_json|safe }}
+</script>
+
+{# --- 2. STATISTIKA HTML (YAGONA QATOR) --- #}
+<div id="stats-data-source" style="display: none;">
+    <div class="stats-dashboard-widget">
+
+        {# 1. JAMI XODIMLAR #}
+        <div class="stat-box total-box">
+            <div class="stat-header">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-title">
+                    <span class="stat-label">Jami Xodimlar</span>
+                    <span class="stat-value">{{ stats.all.count|intcomma }}</span>
+                </div>
+            </div>
+            <div class="gender-mini-stat">
+                <div class="gender-labels">
+                    <span class="male-text"><i class="fas fa-male"></i> {{ stats.all.male }}</span>
+                    <span class="female-text"><i class="fas fa-female"></i> {{ stats.all.female }}</span>
+                </div>
+                <div class="gender-progress">
+                    <div class="bar-male" style="width: {{ stats.all.male_pct }}%;"></div>
+                    <div class="bar-female" style="width: {{ stats.all.female_pct }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        {# 2. O'QITUVCHILAR #}
+        <div class="stat-box teacher-box">
+            <div class="stat-header">
+                <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <div class="stat-title">
+                    <span class="stat-label">O'qituvchilar</span>
+                    <span class="stat-value">{{ stats.teachers.count|intcomma }}</span>
+                </div>
+            </div>
+            <div class="gender-mini-stat">
+                <div class="gender-labels">
+                    <span class="male-text"><i class="fas fa-male"></i> {{ stats.teachers.male }}</span>
+                    <span class="female-text"><i class="fas fa-female"></i> {{ stats.teachers.female }}</span>
+                </div>
+                <div class="gender-progress">
+                    <div class="bar-male" style="width: {{ stats.teachers.male_pct }}%;"></div>
+                    <div class="bar-female" style="width: {{ stats.teachers.female_pct }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        {# 3. XODIMLAR #}
+        <div class="stat-box staff-box">
+            <div class="stat-header">
+                <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
+                <div class="stat-title">
+                    <span class="stat-label">Xodimlar</span>
+                    <span class="stat-value">{{ stats.staff.count|intcomma }}</span>
+                </div>
+            </div>
+            <div class="gender-mini-stat">
+                <div class="gender-labels">
+                    <span class="male-text"><i class="fas fa-male"></i> {{ stats.staff.male }}</span>
+                    <span class="female-text"><i class="fas fa-female"></i> {{ stats.staff.female }}</span>
+                </div>
+                <div class="gender-progress">
+                    <div class="bar-male" style="width: {{ stats.staff.male_pct }}%;"></div>
+                    <div class="bar-female" style="width: {{ stats.staff.female_pct }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        {# 4. ILMIY DARAJA #}
+        <div class="stat-box degree-box">
+            <div class="stat-header-sm">
+                <i class="fas fa-graduation-cap" style="color: #8b5cf6;"></i>
+                <span class="stat-label-sm">Ilmiy Daraja</span>
+            </div>
+            <div class="sc-list">
+                <div class="sc-item">
+                    <span class="sc-name">PhD</span>
+                    <span class="sc-count badge-purple">{{ sc_stats.degree.phd }}</span>
+                </div>
+                <div class="sc-item">
+                    <span class="sc-name">DSc</span>
+                    <span class="sc-count badge-purple">{{ sc_stats.degree.dsc }}</span>
+                </div>
+            </div>
+        </div>
+
+        {# 5. ILMIY UNVON #}
+        <div class="stat-box title-box">
+            <div class="stat-header-sm">
+                <i class="fas fa-user-graduate" style="color: #f59e0b;"></i>
+                <span class="stat-label-sm">Ilmiy Unvon</span>
+            </div>
+            <div class="sc-list">
+                <div class="sc-item">
+                    <span class="sc-name">Dotsent</span>
+                    <span class="sc-count badge-amber">{{ sc_stats.title.docent }}</span>
+                </div>
+                <div class="sc-item">
+                    <span class="sc-name">Professor</span>
+                    <span class="sc-count badge-amber">{{ sc_stats.title.professor }}</span>
+                </div>
+                <div class="sc-item">
+                    <span class="sc-name">Akademik</span>
+                    <span class="sc-count badge-amber">{{ sc_stats.title.academic }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- 3. CSS STILLAR --- #}
+<style>
+    /* 3.1. STATISTIKA GRID DIZAYNI */
+    .stats-dashboard-widget {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+        margin-top: 15px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    .stat-box {
+        background: #fff; border-radius: 12px; padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #eef2f6;
+        display: flex; flex-direction: column; justify-content: space-between;
+        transition: transform 0.2s;
+        min-height: 140px;
+    }
+    .stat-box:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08); }
+
+    .stat-header { display: flex; align-items: center; margin-bottom: 12px; }
+    .stat-icon {
+        width: 42px; height: 42px;
+        border-radius: 10px; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; margin-right: 12px; flex-shrink: 0;
+    }
+    .stat-title { display: flex; flex-direction: column; }
+    .stat-label { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .stat-value { font-size: 22px; font-weight: 800; color: #1e293b; line-height: 1.1; }
+
+    .total-box .stat-icon { background: #eff6ff; color: #3b82f6; }
+    .teacher-box .stat-icon { background: #f0fdf4; color: #10b981; }
+    .staff-box .stat-icon { background: #fff7ed; color: #f97316; }
+
+    .gender-mini-stat {
+        background: #f8fafc; border-radius: 8px; padding: 8px 10px; border: 1px solid #f1f5f9;
+        margin-top: auto;
+    }
+    .gender-labels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+    .male-text { color: #4facfe; display: flex; align-items: center; gap: 4px; }
+    .female-text { color: #fa709a; display: flex; align-items: center; gap: 4px; }
+    .gender-progress { width: 100%; height: 5px; background: #e2e8f0; border-radius: 3px; display: flex; overflow: hidden; }
+    .bar-male { background: #4facfe; height: 100%; }
+    .bar-female { background: #fa709a; height: 100%; }
+
+    .degree-box { border-top: 3px solid #8b5cf6; }
+    .title-box { border-top: 3px solid #f59e0b; }
+
+    .stat-header-sm { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #334155; }
+    .stat-label-sm { text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+
+    .sc-list { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; justify-content: center; }
+    .sc-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #f1f5f9; }
+    .sc-name { font-size: 11px; font-weight: 600; color: #475569; }
+    .sc-count { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+
+    .badge-purple { background: #ede9fe; color: #7c3aed; }
+    .badge-amber { background: #fef3c7; color: #d97706; }
+
+    /* 3.2. JADVAL VA HEADER DIZAYNI */
+    .card-body.table-responsive {
+        height: 85vh !important; max-height: 85vh !important;
+        overflow-y: auto !important; display: block !important;
+        width: 100% !important; position: relative !important;
+    }
+    #result_list thead th {
+        background-color: #343a40 !important; color: #ffffff !important;
+        border: 1px solid #454d55; vertical-align: middle !important;
+        white-space: nowrap; position: sticky !important; top: 0 !important;
+        z-index: 100 !important; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    #result_list thead th a { color: #ffffff !important; }
+    #result_list thead th:hover { background-color: #23272b !important; }
+    #result_list { width: 100% !important; border-collapse: separate !important; border-spacing: 0; margin-bottom: 0 !important; }
+
+    /* 3.3. EXCEL FILTER CSS */
+    .th-inner-wrapper { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+    .th-text { display: flex; align-items: center; gap: 5px; }
+    .excel-filter-wrapper { display: inline-block; }
+    .excel-filter-btn {
+        background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px; color: #fff; width: 24px; height: 24px;
+        display: flex; align-items: center; justify-content: center; font-size: 10px;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .excel-filter-btn:hover { background-color: rgba(255, 255, 255, 0.4); border-color: #fff; }
+    .excel-filter-btn.active-filter { background-color: #fff; color: #343a40; border-color: #fff; font-weight: bold; }
+
+    .excel-dropdown {
+        display: none; position: absolute; top: 35px; right: 0;
+        background: white; border: 1px solid #dfe6e9; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 1000; min-width: 220px; border-radius: 6px; overflow: hidden;
+        color: #333; font-weight: normal; text-transform: none;
+    }
+    .excel-dropdown label {
+        display: flex; align-items: center; padding: 10px 15px; color: #2d3436;
+        font-size: 13px; cursor: pointer; border-bottom: 1px solid #f8f9fa; margin: 0;
+        font-weight: normal; text-transform: none;
+    }
+    .excel-dropdown label:hover { background-color: #f1f2f6; }
+    .excel-dropdown input { margin-right: 12px; accent-color: #343a40; }
+    .excel-filter-actions {
+        padding: 10px; display: flex; justify-content: space-between;
+        background: #f8f9fa; border-top: 1px solid #eee;
+    }
+    .btn-apply { background: #343a40; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;}
+    .btn-clear { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;}
+
+    /* 3.4. EXPORT MODAL & CHECKBOX RE-DESIGN */
+    .export-modal { display: none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .export-modal-content { background-color: #f8f9fa; border-radius: 16px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.25); display: flex; flex-direction: column; }
+    .export-modal-header { background: #fff; padding: 20px 30px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-radius: 16px 16px 0 0; }
+    .close-modal { font-size: 24px; color: #adb5bd; cursor: pointer; }
+    .export-modal-body { padding: 30px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+    .field-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); border: 1px solid #e9ecef; }
+    .field-card-title { font-size: 15px; font-weight: 700; color: #495057; margin-bottom: 15px; border-bottom: 2px solid #f1f3f5; padding-bottom: 10px; }
+
+    .checkbox-list { display: flex; flex-direction: column; gap: 4px; }
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        padding: 10px 12px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .checkbox-item:hover { background: #f0f7ff; border-color: #d1e3ff; }
+    .checkbox-item input[type="checkbox"] {
+        margin-right: 15px !important; /* Checkbox va matn orasi */
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .checkbox-item span { font-size: 14px; color: #334155; font-weight: 500; }
+
+    .export-modal-footer { padding: 20px 30px; background: #fff; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; border-radius: 0 0 16px 16px; position: sticky; bottom: 0; }
+    .btn-outline { background: transparent; border: 1px solid #ced4da; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn-primary-action {
+        background: #107c41; color: white; border: none; padding: 10px 35px;
+        border-radius: 10px; cursor: pointer; font-weight: 700;
+        box-shadow: 0 4px 12px rgba(16, 124, 65, 0.25);
+        display: flex; align-items: center; gap: 10px;
+        transition: all 0.3s;
+    }
+    .btn-primary-action:hover { background: #0d6334; transform: translateY(-1px); }
+
+    @media (max-width: 768px) { .export-modal-body { grid-template-columns: 1fr; } }
+</style>
+
+{# --- 4. JAVASCRIPT LOGIKA (TO'LIQ) --- #}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    // 4.1. SCROLL VA HEADER FIX
+    const resultsDiv = document.querySelector('.card-body.table-responsive');
+    if (resultsDiv) {
+        resultsDiv.style.cssText = "height: 85vh !important; max-height: 85vh !important; overflow-y: auto !important; display: block !important;";
+        const headers = document.querySelectorAll('#result_list thead th');
+        headers.forEach(th => {
+            th.style.position = 'sticky'; th.style.top = '0'; th.style.zIndex = '100';
+            th.style.backgroundColor = '#343a40'; th.style.color = '#ffffff';
+        });
+    }
+
+    // 4.2. STATISTIKANI JOYLASHTIRISH
+    const statsHTML = document.getElementById('stats-data-source');
+    const actionRow = document.querySelector('.change-list-actions');
+    const contentMain = document.getElementById('content-main');
+    if (statsHTML) {
+        const statsDiv = document.createElement('div');
+        statsDiv.innerHTML = statsHTML.innerHTML;
+        if (actionRow) { actionRow.parentNode.insertBefore(statsDiv, actionRow); }
+        else if (contentMain) { contentMain.insertBefore(statsDiv, contentMain.firstChild); }
+    }
+
+    // 4.3. EXPORT TUGMASINI QO'SHISH
+    let toolsContainer = document.querySelector('.change-list-actions .col-12') || document.querySelector('div.actions');
+    if (toolsContainer) {
+        const exportBtn = document.createElement('a');
+        exportBtn.href = "#";
+        exportBtn.className = "btn btn-info btn-sm";
+        exportBtn.style.marginLeft = "10px"; exportBtn.style.marginRight = "10px";
+        exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Excelga yuklash';
+        exportBtn.onclick = function(e) { e.preventDefault(); document.getElementById('exportModal').style.display = 'flex'; };
+        toolsContainer.appendChild(exportBtn);
+    }
+
+    // 4.4. FILTR KONFIGURATSIYALARI
+    let departmentOptions = [];
+    try {
+        const deptJson = document.getElementById('departments-data').textContent;
+        departmentOptions = JSON.parse(deptJson).map(d => ({ val: d.id.toString(), label: d.name }));
+    } catch(e) {}
+
+    const statusOptions = [
+        {val: 'active', label: "Faol"},
+        {val: 'pending', label: "Kutilmoqda"},
+        {val: 'dismissed', label: "Bo'shatilgan"},
+    ];
+
+    const roleOptions = [
+        {val: '1', label: "O'qituvchi"},
+        {val: '0', label: "Xodim"},
+    ];
+
+    const degreeOptions = [
+        {val: 'none', label: "Yo'q"},
+        {val: 'phd', label: "PhD (Falsafa doktori)"},
+        {val: 'dsc', label: "DSc (Fan doktori)"},
+    ];
+
+    const titleOptions = [
+        {val: 'none', label: "Yo'q"},
+        {val: 'docent', label: "Dotsent"},
+        {val: 'professor', label: "Professor"},
+        {val: 'academic', label: "Akademik"},
+    ];
+
+    // 4.5. EXCEL STYLE FILTRLARNI YARATISH FUNKSIYASI
+    function createExcelFilter(keywords, paramName, options) {
+        const headers = document.querySelectorAll('#result_list thead th');
+        let targetTh = null;
+        headers.forEach(th => {
+            const text = th.innerText.toLowerCase().trim();
+            if (keywords.some(k => text.includes(k.toLowerCase()))) { targetTh = th; }
+        });
+
+        if (!targetTh || targetTh.querySelector('.excel-filter-wrapper')) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const currentVal = params.get(paramName) || '';
+        const selectedArr = currentVal ? currentVal.split(',') : [];
+        const isActive = currentVal ? 'active-filter' : '';
+
+        let listItems = options.length > 0 ? options.map(opt =>
+            `<label><input type="checkbox" value="${opt.val}" ${selectedArr.includes(opt.val) ? 'checked' : ''}> ${opt.label}</label>`
+        ).join('') : '<div style="padding:10px; color:#999; text-align:center;">Ma\'lumot yo\'q</div>';
+
+        const filterHtml = `
+            <div class="excel-filter-wrapper" onclick="event.stopPropagation();">
+                <div class="excel-filter-btn ${isActive}" onclick="toggleExcelFilter(this)" title="Filter">
+                    <i class="fas fa-filter"></i>
+                </div>
+                <div class="excel-dropdown" onclick="event.stopPropagation();" data-param="${paramName}">
+                    <div style="max-height:250px; overflow-y:auto;">${listItems}</div>
+                    <div class="excel-filter-actions">
+                        <button type="button" class="btn-clear" onclick="applyCustomFilter('${paramName}', true)">Tozalash</button>
+                        <button type="button" class="btn-apply" onclick="applyCustomFilter('${paramName}', false)">Qo'llash</button>
+                    </div>
+                </div>
+            </div>`;
+
+        const originalContent = targetTh.innerHTML;
+        targetTh.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'th-inner-wrapper';
+        const textSpan = document.createElement('span');
+        textSpan.className = 'th-text';
+        textSpan.innerHTML = originalContent;
+        wrapper.appendChild(textSpan);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = filterHtml;
+        wrapper.appendChild(tempDiv.firstElementChild);
+        targetTh.appendChild(wrapper);
+    }
+
+    createExcelFilter(["kafedra", "bo'lim", "department"], "department__id", departmentOptions);
+    createExcelFilter(["hr holati", "holati", "status"], "status", statusOptions);
+    createExcelFilter(["roli", "role", "vazifasi", "o'qituvchi"], "role_filter", roleOptions);
+    createExcelFilter(["ilmiy daraja", "daraja"], "scientific_degree", degreeOptions);
+    createExcelFilter(["ilmiy unvon", "unvon"], "scientific_title", titleOptions);
+});
+
+// GLOBAL FUNCTIONS
+window.toggleExcelFilter = function(btn) {
+    document.querySelectorAll('.excel-dropdown').forEach(d => { if (d !== btn.nextElementSibling) d.style.display = 'none'; });
+    const menu = btn.nextElementSibling;
+    menu.style.display = (window.getComputedStyle(menu).display === 'none') ? 'block' : 'none';
+};
+
+window.applyCustomFilter = function(paramName, clear) {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('e');
+    if (clear) { params.delete(paramName); }
+    else {
+        const targetDropdown = document.querySelector(`.excel-dropdown[data-param="${paramName}"]`);
+        if (targetDropdown) {
+            const checkedInputs = targetDropdown.querySelectorAll('input:checked');
+            const checkedValues = Array.from(checkedInputs).map(c => c.value);
+            if (checkedValues.length > 0) { params.set(paramName, checkedValues.join(',')); }
+            else { params.delete(paramName); }
+        }
+    }
+    params.delete('p');
+    window.location.search = params.toString();
+};
+
+window.addEventListener('click', function(e) {
+    if (!e.target.closest('.excel-filter-wrapper')) { document.querySelectorAll('.excel-dropdown').forEach(d => d.style.display = 'none'); }
+});
+
+window.closeExportModal = function() { document.getElementById('exportModal').style.display = 'none'; }
+window.toggleAllCheckboxes = function() {
+    const cbs = document.querySelectorAll('#exportForm input[type="checkbox"]');
+    const all = Array.from(cbs).every(c => c.checked);
+    cbs.forEach(c => c.checked = !all);
+}
+window.submitExport = function() {
+    var form = document.getElementById('exportForm');
+
+    // 1. Joriy brauzer URLidagi filtrlarni olamiz (masalan: ?department__id=1&q=test)
+    var currentQueryParams = window.location.search;
+
+    // 2. Formaning asl manzilini (URL) tozalab olamiz (eski parametrlarsiz)
+    var originalAction = form.getAttribute('action').split('?')[0];
+
+    // 3. Yangi manzilni yasaymiz: Asl URL + Filtrlar
+    // Agar filtrlar bo'lsa, ularni qo'shamiz
+    if (currentQueryParams) {
+        form.action = originalAction + currentQueryParams;
+    } else {
+        form.action = originalAction;
+    }
+
+    // 4. Formani yuborish
+    form.submit();
+
+    // Modalni yopish
+    closeExportModal();
+}
+window.onclick = function(e) { if (e.target == document.getElementById('exportModal')) closeExportModal(); }
+</script>
+{% endblock %}
+
+{% block result_list %}
+    {% if cl.result_count == 0 %}
+        <div class="results">
+            <div class="card">
+                <div class="card-body table-responsive">
+                    <table id="result_list" class="table table-striped table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><div class="text-center"><span><input type="checkbox" disabled></span></div></th>
+                                <th>F.I.SH</th>
+                                <th>Passport</th>
+                                <th>JSHSHIR</th>
+                                <th>Kafedra/Bo'lim</th>
+                                <th>Lavozimlar</th>
+                                <th>Ilmiy Daraja</th>
+                                <th>Ilmiy Unvon</th>
+                                <th>HR Holati</th>
+                                <th>Roli</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="10" style="text-align: center; padding: 50px; color: #777;">
+                                    <i class="fas fa-search" style="font-size: 40px; margin-bottom: 20px; display: block; color: #e2e8f0;"></i>
+                                    <h4 style="margin: 0; color: #334155; font-weight: 600;">Ma'lumot topilmadi</h4>
+                                    <a href="{{ request.path }}" style="display: inline-block; margin-top: 20px; padding: 10px 24px; background-color: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">Barcha filtrlarni tozalash</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+
+    <div id="exportModal" class="export-modal">
+        <div class="export-modal-content">
+            <div class="export-modal-header">
+                <h3><i class="fas fa-file-excel" style="color: #107c41; margin-right: 12px;"></i> Xodimlarni yuklash (Excel)</h3>
+                <span class="close-modal" onclick="closeExportModal()">&times;</span>
+            </div>
+
+            <form id="exportForm" method="POST" action="{% url 'admin:kadrlar_employee_export' %}">
+                {% csrf_token %}
+                <div class="export-modal-body">
+                    <div class="field-card">
+                        <div class="field-card-title"><i class="fas fa-user-circle"></i> Shaxsiy ma'lumotlar</div>
+                        <div class="checkbox-list">
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="first_name" checked> <span>Ism</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="last_name" checked> <span>Familiya</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="middle_name"> <span>Otasining ismi</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="passport_info" checked> <span>Pasport Seriya</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="pid"> <span>JSHSHIR (PINFL)</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="birth_date"> <span>Tug'ilgan sana</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="gender"> <span>Jinsi</span></label>
+                        </div>
+                    </div>
+                    <div class="field-card">
+                        <div class="field-card-title"><i class="fas fa-briefcase"></i> Ish joyi va Status</div>
+                        <div class="checkbox-list">
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="department" checked> <span>Bo'lim / Kafedra</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="positions" checked> <span>Lavozimlar</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="status" checked> <span>Holat (Active/Pending)</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="hired_at"> <span>Ishga kirgan sana</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="scientific_degree"> <span>Ilmiy Daraja (PhD/DSc)</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="scientific_title"> <span>Ilmiy Unvon</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="is_teacher"> <span>O'qituvchi / Xodim</span></label>
+                            <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="approved"> <span>HR Tasdiq holati</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="export-modal-footer">
+                    <button type="button" class="btn-outline" onclick="toggleAllCheckboxes()">Barchasini tanlash</button>
+                    <button type="button" class="btn-primary-action" onclick="submitExport()"><i class="fas fa-file-download"></i> Yuklash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

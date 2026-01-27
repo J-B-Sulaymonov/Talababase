@@ -1,0 +1,384 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --bg-color: #f4f6f9;
+        --border-color: #e0e0e0;
+        --print-btn-bg: #34495e;
+        --excel-btn-bg: #27ae60;
+        --dark-btn-bg: #495057;
+        --dark-btn-hover: #343a40;
+        --green-btn: #10ac84;
+        --red-btn: #ff6b6b;
+    }
+
+    /* Asosiy konteyner */
+    .report-container {
+        font-family: 'Inter', sans-serif;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+
+    /* HEADER QISMI */
+    .report-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+        padding: 20px 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+
+    .report-title h1 {
+        font-size: 24px; font-weight: 700; color: var(--primary-color); margin: 0;
+    }
+    .report-title p { margin: 5px 0 0; color: #7f8c8d; font-size: 14px; }
+
+    .header-actions { display: flex; gap: 15px; }
+    .action-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;
+        text-decoration: none; cursor: pointer; border: none; color: #fff !important;
+        transition: all 0.2s; line-height: 1;
+    }
+    .btn-print { background-color: var(--print-btn-bg); }
+    .btn-excel { background-color: var(--excel-btn-bg); }
+
+    /* --- FILTER STYLES (Swod bilan bir xil) --- */
+    .filters-wrapper {
+        display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .custom-dropdown { position: relative; display: inline-block; }
+    .dropdown-btn {
+        background-color: var(--dark-btn-bg); color: white; padding: 0 15px;
+        font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
+        cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+        min-width: 160px; text-transform: uppercase; height: 40px; transition: background-color 0.2s;
+    }
+    .dropdown-btn:hover { background-color: var(--dark-btn-hover); }
+    .dropdown-btn i { margin-left: 10px; font-size: 12px; }
+    .dropdown-content {
+        display: none; position: absolute; top: 45px; left: 0;
+        background-color: #fff; min-width: 220px; box-shadow: 0px 5px 15px rgba(0,0,0,0.15);
+        z-index: 100; border-radius: 8px; border: 1px solid #eee; overflow: hidden;
+    }
+    .show { display: block; }
+    .checkbox-list { max-height: 300px; overflow-y: auto; padding: 10px; }
+    .checkbox-item {
+        display: flex; align-items: center; gap: 10px; font-size: 14px; color: #34495e;
+        font-weight: 600; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.1s;
+        text-transform: capitalize;
+    }
+    .checkbox-item:hover { background-color: #f8f9fa; }
+    .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #3498db; }
+
+    .date-filter-box { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .date-input { width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 13px; box-sizing: border-box;}
+
+    .dropdown-footer { display: flex; justify-content: space-between; padding: 10px; background-color: #f8f9fa; border-top: 1px solid #eee; gap: 10px; }
+    .footer-btn { flex: 1; padding: 8px; border: none; border-radius: 4px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: opacity 0.2s; }
+    .btn-clear { background-color: var(--red-btn); }
+    .btn-apply { background-color: var(--green-btn); }
+
+    /* JADVAL DIZAYNI */
+    .table-card {
+        background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; width: 100%;
+    }
+    .table-responsive { width: 100%; overflow-x: auto; }
+    .custom-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 800px; }
+
+    .custom-table thead th {
+        background-color: #2c3e50; color: #ffffff; padding: 15px; text-align: center;
+        font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); text-transform: uppercase;
+        font-size: 12px; letter-spacing: 0.5px; white-space: nowrap;
+    }
+
+    .custom-table tbody td {
+        padding: 12px 15px; border-bottom: 1px solid var(--border-color); border-right: 1px solid #f0f0f0;
+        color: #2c3e50; vertical-align: middle;
+    }
+
+    .text-center { text-align: center; } .text-right { text-align: right; } .text-left { text-align: left; }
+    .text-bold { font-weight: 700; }
+    .custom-table tbody tr:hover { background-color: #f8f9fa; }
+
+    .badge {
+        padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+        text-transform: uppercase; display: inline-block; min-width: 80px; text-align: center;
+    }
+    .badge-kunduzgi { background-color: #e8f5e9; color: #2e7d32; }
+    .badge-sirtqi { background-color: #e3f2fd; color: #1565c0; }
+    .badge-kechki { background-color: #fff3e0; color: #ef6c00; }
+
+    .table-footer tr td {
+        background-color: #ecf0f1; font-weight: 700; border-top: 2px solid #bdc3c7; color: var(--primary-color);
+    }
+    .grand-total td { background-color: #2c3e50; color: white; font-size: 15px; padding: 15px; }
+
+    @media print {
+        .report-header, .filters-wrapper, .back-link { display: none !important; }
+        .report-container { padding: 0; background: white; max-width: 100%; margin: 0; }
+        .table-card { box-shadow: none; }
+    }
+</style>
+
+<div class="report-container">
+
+    <div class="report-header">
+        <div class="report-title">
+            <h1>Kontingent Hisoboti</h1>
+            <p>Talabalarning kurslar va ta'lim shakli bo'yicha taqsimoti | Sana: {{ current_date }}</p>
+        </div>
+
+        <div class="header-actions">
+            <button onclick="window.print()" class="action-btn btn-print">
+                <i class="fas fa-print"></i> Chop etish
+            </button>
+            <a href="#" onclick="exportToExcel(event)" class="action-btn btn-excel">
+                <i class="fas fa-file-excel"></i> Excel yuklash
+            </a>
+        </div>
+    </div>
+
+    <form method="get" class="filters-wrapper" id="filterForm">
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('statusDropdown')">
+                STATUS <i class="fas fa-filter"></i>
+            </button>
+            <div id="statusDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'status')"> Jami
+                    </label>
+                    {% for code, name in filter_options.statuses %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="status" value="{{ code }}"
+                            {% if code in selected_filters.status %}checked{% endif %}>
+                        {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('status')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('formDropdown')">
+                TA'LIM SHAKLI <i class="fas fa-filter"></i>
+            </button>
+            <div id="formDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                     <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'form')"> Jami
+                    </label>
+                    {% for code, name in filter_options.forms %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="form" value="{{ code }}"
+                            {% if code in selected_filters.form %}checked{% endif %}>
+                        {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('form')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('dateDropdown')">
+                Vaqt <i class="fas fa-calendar-alt"></i>
+            </button>
+            <div id="dateDropdown" class="dropdown-content">
+                <div class="date-filter-box">
+                    <label style="font-size:12px; font-weight:600; color:#777;">Shu sanagacha kiritilgan:</label>
+                    <input type="date" name="date" class="date-input" value="{{ selected_filters.date|default:'' }}">
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearDateSelection()">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">№</th>
+
+                        <th class="text-left" style="width: 300px; max-width: 300px; white-space: normal;">
+                            Ta'lim yo'nalishi
+                        </th>
+
+                        <th style="width: 130px;">Ta'lim shakli</th>
+                        <th style="width: 60px;">1-kurs</th> <th style="width: 60px;">2-kurs</th>
+                        <th style="width: 60px;">3-kurs</th>
+                        <th style="width: 60px;">4-kurs</th>
+                        <th style="width: 60px;">5-kurs</th>
+                        <th style="width: 80px; background-color: #34495e;">Jami</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report_data %}
+                        {% for row in item.rows %}
+                        <tr>
+                            {% if forloop.first %}
+                                <td rowspan="{{ item.rowspan }}" class="text-center text-bold">{{ item.index }}</td>
+                                <td rowspan="{{ item.rowspan }}" class="text-bold text-left">{{ item.spec_name }}</td>
+                            {% endif %}
+
+                            <td class="text-center">
+                                <span class="badge badge-{{ row.form }}">{{ row.form }}</span>
+                            </td>
+
+                            <td class="text-center">{% if row.c1 > 0 %}{{ row.c1 }}{% endif %}</td>
+                            <td class="text-center">{% if row.c2 > 0 %}{{ row.c2 }}{% endif %}</td>
+                            <td class="text-center">{% if row.c3 > 0 %}{{ row.c3 }}{% endif %}</td>
+                            <td class="text-center">{% if row.c4 > 0 %}{{ row.c4 }}{% endif %}</td>
+                            <td class="text-center">{% if row.c5 > 0 %}{{ row.c5 }}{% endif %}</td>
+
+                            <td class="text-center text-bold" style="background-color: #f8f9fa;">{{ row.total }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center" style="padding: 30px; color: #999;">
+                                Tanlangan filtr bo'yicha ma'lumot topilmadi
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+
+                <tfoot class="table-footer">
+                    <tr>
+                        <td colspan="2" class="text-right">Jami:</td>
+                        <td class="text-center"><span class="badge badge-kunduzgi">Kunduzgi</span></td>
+                        <td class="text-center">{{ form_totals.kunduzgi.1 }}</td>
+                        <td class="text-center">{{ form_totals.kunduzgi.2 }}</td>
+                        <td class="text-center">{{ form_totals.kunduzgi.3 }}</td>
+                        <td class="text-center">{{ form_totals.kunduzgi.4 }}</td>
+                        <td class="text-center">{{ form_totals.kunduzgi.5 }}</td>
+                        <td class="text-center">{{ form_totals.kunduzgi.total }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="text-right">Jami:</td>
+                        <td class="text-center"><span class="badge badge-sirtqi">Sirtqi</span></td>
+                        <td class="text-center">{{ form_totals.sirtqi.1 }}</td>
+                        <td class="text-center">{{ form_totals.sirtqi.2 }}</td>
+                        <td class="text-center">{{ form_totals.sirtqi.3 }}</td>
+                        <td class="text-center">{{ form_totals.sirtqi.4 }}</td>
+                        <td class="text-center">{{ form_totals.sirtqi.5 }}</td>
+                        <td class="text-center">{{ form_totals.sirtqi.total }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="text-right">Jami:</td>
+                        <td class="text-center"><span class="badge badge-kechki">Kechki</span></td>
+                        <td class="text-center">{{ form_totals.kechki.1 }}</td>
+                        <td class="text-center">{{ form_totals.kechki.2 }}</td>
+                        <td class="text-center">{{ form_totals.kechki.3 }}</td>
+                        <td class="text-center">{{ form_totals.kechki.4 }}</td>
+                        <td class="text-center">{{ form_totals.kechki.5 }}</td>
+                        <td class="text-center">{{ form_totals.kechki.total }}</td>
+                    </tr>
+
+                    <tr class="grand-total">
+                        <td colspan="3" class="text-right">UMUMIY JAMI:</td>
+                        <td class="text-center">{{ total_counts.1 }}</td>
+                        <td class="text-center">{{ total_counts.2 }}</td>
+                        <td class="text-center">{{ total_counts.3 }}</td>
+                        <td class="text-center">{{ total_counts.4 }}</td>
+                        <td class="text-center">{{ total_counts.5 }}</td>
+                        <td class="text-center">{{ total_counts.total }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="back-link" style="margin-top: 20px;">
+        <a href=".." style="color: #7f8c8d; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-arrow-left"></i> Orqaga
+        </a>
+    </div>
+
+</div>
+
+<script>
+    function toggleDropdown(id) {
+        var dropdowns = document.getElementsByClassName("dropdown-content");
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].id !== id) {
+                dropdowns[i].classList.remove('show');
+            }
+        }
+        document.getElementById(id).classList.toggle("show");
+    }
+
+    // Tashqariga bosganda yopish
+    window.onclick = function(event) {
+        if (!event.target.matches('.dropdown-btn') && !event.target.matches('.dropdown-btn *')) {
+            var dropdowns = document.getElementsByClassName("dropdown-content");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show') && !openDropdown.contains(event.target)) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+    }
+
+    function clearSelection(name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+        });
+        const headerCheckbox = document.querySelector(`input[onchange="toggleAll(this, '${name}')"]`);
+        if(headerCheckbox) headerCheckbox.checked = false;
+    }
+
+    function clearDateSelection() {
+        const input = document.querySelector('input[name="date"]');
+        if(input) input.value = '';
+    }
+
+    function toggleAll(source, name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => {
+            cb.checked = source.checked;
+        });
+    }
+
+    function exportToExcel(e) {
+        e.preventDefault();
+        // Hozirgi URL dagi barcha filtrlarni (?status=active&date=...) olamiz
+        const searchParams = window.location.search;
+        // Ularni export URL iga ulaymiz
+        const exportUrl = 'export/' + searchParams;
+        window.location.href = exportUrl;
+    }
+</script>
+
+{% endblock %}

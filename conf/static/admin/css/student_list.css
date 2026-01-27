@@ -1,0 +1,40 @@
+/* 📦 Jadval konteyneri (scroll yoqilgan) */
+.content-wrapper .table-responsive {
+    overflow-x: auto !important;    /* Gorizontal scroll */
+    overflow-y: hidden !important;
+    margin-bottom: 40px;
+}
+
+/* 📋 Jadvalning umumiy shakli */
+.content-wrapper table.table {
+    width: max-content !important;  /* Ustunlar kengligiga qarab cho‘ziladi */
+    min-width: 100%;                /* Kamida oynani to‘ldirsin */
+    table-layout: fixed !important; /* Ustun kengliklari boshqarilsin */
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+/* 🧩 Har bir yacheyka (th + td) */
+.content-wrapper table.table th,
+.content-wrapper table.table td {
+    max-width: 200px !important;    /* Har bir yacheyka 150px dan keng emas */
+    white-space: normal !important; /* Matn yangi qatordan chiqadi */
+    word-break: break-word !important; /* So‘zlar ham bo‘linadi */
+    text-align: left;
+    vertical-align: top;
+    padding: 8px 10px;
+    line-height: 1.4;
+}
+
+/* 🎨 Jadval sarlavhasi uchun dizayn */
+.content-wrapper table.table th {
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: middle;
+}
+
+/* 🪶 Hover effekti */
+.content-wrapper table.table tbody tr:hover {
+    background-color: #f3f6fa;
+}
+

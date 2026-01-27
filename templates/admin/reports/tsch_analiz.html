@@ -1,0 +1,671 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_list humanize %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+
+    /* PRINT STYLES */
+    @media print {
+        #header, .breadcrumbs, .filter-box, .tab-header, .btn-back, .action-buttons, .admin-tools { display: none !important; }
+        #content-main { margin: 0; padding: 0; width: 100%; }
+        .tab-content { display: block !important; }
+        .year-block { break-inside: avoid; page-break-inside: avoid; }
+        body { background-color: white; zoom: 70%; }
+        .table-responsive { overflow: visible !important; box-shadow: none; border: none; }
+        .tab-content { display: block !important; opacity: 1 !important; visibility: visible !important; }
+    }
+
+    /* === MULTI-SELECT DROPDOWN STYLES === */
+    .multiselect { width: 100%; max-width: 400px; position: relative; user-select: none; }
+    .selectBox { position: relative; cursor: pointer; }
+    .selectBox select { width: 100%; font-weight: bold; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; background: white; cursor: pointer; appearance: none; -webkit-appearance: none; height: 42px; }
+    .selectBox:after { content: "▼"; position: absolute; right: 12px; top: 12px; font-size: 12px; color: #555; pointer-events: none; }
+    .overSelect { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+
+    #checkboxes {
+        display: none;
+        border: 1px solid #ced4da;
+        background-color: white;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        max-height: 250px;
+        overflow-y: auto;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 0 0 4px 4px;
+    }
+    #checkboxes label {
+        display: block; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f1f1; margin: 0; color: #333; font-weight: 500;
+    }
+    #checkboxes label:hover { background-color: #e9ecef; }
+    #checkboxes input { margin-right: 10px; transform: scale(1.2); }
+
+    /* FILTER CONTAINER */
+    .filter-box { background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; align-items: flex-end; gap: 15px; border: 1px solid #ddd; justify-content: space-between; }
+    .filter-left { display: flex; align-items: flex-end; gap: 15px; flex-grow: 1; flex-wrap: wrap; }
+
+    /* DATE INPUT STYLES */
+    .date-input {
+        padding: 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-weight: bold;
+        height: 42px;
+        width: 100%;
+        box-sizing: border-box;
+        background-color: white;
+    }
+
+    /* ACTION BUTTONS */
+    .action-buttons { display: flex; gap: 10px; }
+    .btn-print { background-color: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; text-decoration: none; height: 42px; }
+    .btn-excel { background-color: #2980b9; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; text-decoration: none; height: 42px; }
+    .btn-print:hover { background-color: #2c3e50; }
+    .btn-excel:hover { background-color: #2471a3; }
+
+    /* MODAL STYLES */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 400px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+    .close:hover { color: black; }
+    .modal-option { margin-bottom: 10px; display: flex; align-items: center; }
+    .modal-option input { margin-right: 10px; transform: scale(1.2); }
+    .modal-footer { margin-top: 20px; text-align: right; }
+
+    /* TABS */
+    .tab-header { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+    .tab-btn { padding: 12px 25px; cursor: pointer; background: #f1f1f1; border: none; outline: none; font-weight: bold; color: #555; transition: 0.3s; margin-right: 5px; border-radius: 5px 5px 0 0; }
+    .tab-btn.active { background: #2c3e50; color: white; border-bottom: 2px solid #2c3e50; }
+    .tab-content { display: none; padding-bottom: 40px; }
+    .tab-content.active { display: block; }
+
+    /* TABLES */
+    .year-block { margin-bottom: 40px; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #ddd; }
+    .year-header { background-color: #2c3e50; color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 4px 4px 0 0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; }
+    .table-responsive { overflow-x: auto; padding: 5px 0; }
+    table.report-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; color: #333; }
+    .report-table th, .report-table td { border: 1px solid #dee2e6; padding: 8px 4px; text-align: center; vertical-align: middle; }
+    .report-table thead th { background-color: #e9ecef; border: 1px solid #adb5bd; font-weight: bold; color: #495057; }
+    .course-title { background-color: #ced4da !important; font-size: 13px; text-transform: uppercase; border-bottom: 2px solid #adb5bd !important; }
+    .grad-title { background-color: #d4edda !important; color: #155724 !important; border-color: #c3e6cb !important; }
+    .col-loss { background-color: #ffebee; color: #c62828; font-weight: bold; }
+    .money { font-family: 'Consolas', monospace; white-space: nowrap; }
+    .money-loss { font-family: 'Consolas', monospace; white-space: nowrap; color: #c62828; font-weight: bold; background-color: #ffebee; }
+
+    /* FOOTER STYLES - UNIFORM BACKGROUND */
+    .report-table tfoot td { background-color: #34495e; color: white; font-weight: bold; border: 1px solid #2c3e50; }
+
+    .btn-back { background: #6c757d; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-size: 13px; }
+    .summary-box { margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-left: 5px solid #2980b9; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; }
+    .sum-val { font-weight: bold; }
+</style>
+
+<script>
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) tabcontent[i].className = tabcontent[i].className.replace(" active", "");
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
+        document.getElementById(tabName).className += " active";
+        if(evt) evt.currentTarget.className += " active";
+        document.getElementById("id_active_tab").value = tabName;
+    }
+
+    var expanded = false;
+    function showCheckboxes() {
+        var checkboxes = document.getElementById("checkboxes");
+        if (!expanded) {
+            checkboxes.style.display = "block";
+            expanded = true;
+        } else {
+            checkboxes.style.display = "none";
+            expanded = false;
+            submitFilter();
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        var multiselect = document.querySelector('.multiselect');
+        var checkboxes = document.getElementById("checkboxes");
+        if (expanded && !multiselect.contains(event.target)) {
+            checkboxes.style.display = "none";
+            expanded = false;
+            submitFilter();
+        }
+    });
+
+    function submitFilter() {
+        document.getElementById('filterForm').submit();
+    }
+
+    function updateSelectLabel() {
+        var checkedBoxes = document.querySelectorAll('#checkboxes input[type="checkbox"]:checked');
+        var selectLabel = document.querySelector('#selectLabel option');
+        if (checkedBoxes.length > 0) {
+            selectLabel.text = checkedBoxes.length + " ta yil tanlandi";
+        } else {
+            selectLabel.text = "Qabul yillarini tanlang...";
+        }
+    }
+
+    function openExportModal() { document.getElementById('exportModal').style.display = 'block'; }
+    function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+
+    function submitExport() {
+        const form = document.getElementById('exportForm');
+        const filterForm = document.getElementById('filterForm');
+
+        // 1. Yillarni o'tkazish
+        const yearInputs = filterForm.querySelectorAll('input[name="year"]:checked');
+        form.querySelectorAll('.hidden-year').forEach(e => e.remove());
+        yearInputs.forEach(input => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'year';
+            hidden.value = input.value;
+            hidden.className = 'hidden-year';
+            form.appendChild(hidden);
+        });
+
+        // 2. View Mode (Hisobot turi) ni o'tkazish
+        const viewModeInput = filterForm.querySelector('select[name="view_mode"]');
+        if (viewModeInput) {
+            const oldMode = form.querySelector('input[name="view_mode"]');
+            if (oldMode) oldMode.remove();
+            const hiddenMode = document.createElement('input');
+            hiddenMode.type = 'hidden';
+            hiddenMode.name = 'view_mode';
+            hiddenMode.value = viewModeInput.value;
+            form.appendChild(hiddenMode);
+        }
+
+        // 3. Sanalarni o'tkazish (Start Date & End Date)
+        const startDate = filterForm.querySelector('input[name="start_date"]').value;
+        const endDate = filterForm.querySelector('input[name="end_date"]').value;
+
+        const oldStart = form.querySelector('input[name="start_date"]');
+        if (oldStart) oldStart.remove();
+        const oldEnd = form.querySelector('input[name="end_date"]');
+        if (oldEnd) oldEnd.remove();
+
+        if (startDate) {
+            const hStart = document.createElement('input');
+            hStart.type = 'hidden'; hStart.name = 'start_date'; hStart.value = startDate;
+            form.appendChild(hStart);
+        }
+        if (endDate) {
+            const hEnd = document.createElement('input');
+            hEnd.type = 'hidden'; hEnd.name = 'end_date'; hEnd.value = endDate;
+            form.appendChild(hEnd);
+        }
+
+        form.submit();
+        closeExportModal();
+    }
+
+    window.onload = function() {
+        updateSelectLabel();
+        var inputs = document.querySelectorAll('#checkboxes input[type="checkbox"]');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                updateSelectLabel();
+            });
+        });
+        window.onclick = function(event) {
+            var modal = document.getElementById('exportModal');
+            if (event.target == modal) { modal.style.display = "none"; }
+        }
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="margin: 0; font-size: 24px; color: #2c3e50;">TSCH Analiz</h1>
+        <div class="admin-tools">
+            <a href="{% url 'admin:students_hisobot_changelist' %}" class="btn-back" style="color:white">← Hisobotlarga qaytish</a>
+        </div>
+    </div>
+
+    <div class="filter-box">
+        <form method="GET" id="filterForm" class="filter-left">
+            <input type="hidden" name="active_tab" id="id_active_tab" value="{{ active_tab }}">
+
+            <div style="flex-grow: 1; max-width: 300px;">
+                <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Qabul yillari:</label>
+                <div class="multiselect">
+                    <div class="selectBox" onclick="showCheckboxes()">
+                        <select id="selectLabel"><option>Qabul yillarini tanlang...</option></select>
+                        <div class="overSelect"></div>
+                    </div>
+                    <div id="checkboxes">
+                        {% for y in all_years %}
+                            <label for="year_{{ y.id }}">
+                                <input type="checkbox" id="year_{{ y.id }}" name="year" value="{{ y.id }}"
+                                       {% if y.id in selected_year_ids %}checked{% endif %} />
+                                {{ y.name }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div style="flex-grow: 1; max-width: 160px;">
+                <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Dan (sana):</label>
+                <input type="date" name="start_date" class="date-input" value="{{ start_date|default:'' }}" onchange="submitFilter()">
+            </div>
+
+            <div style="flex-grow: 1; max-width: 160px;">
+                <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Gacha (sana):</label>
+                <input type="date" name="end_date" class="date-input" value="{{ end_date|default:'' }}" onchange="submitFilter()">
+            </div>
+
+            <div style="flex-grow: 1; max-width: 200px;">
+                <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">Hisobot turi:</label>
+                <select name="view_mode" class="form-control" onchange="submitFilter()"
+                        style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold; height: 42px; background-color: #fff; cursor: pointer;">
+                    <option value="separate" {% if view_mode == 'separate' %}selected{% endif %}>Alohida (Yillar bo'yicha)</option>
+                    <option value="general" {% if view_mode == 'general' %}selected{% endif %}>Umumiy (Birlashtirilgan)</option>
+                </select>
+            </div>
+        </form>
+
+        <div class="action-buttons">
+            <button onclick="window.print()" class="btn-print"><i class="fas fa-print"></i> Chop etish</button>
+            <button onclick="openExportModal()" class="btn-excel"><i class="fas fa-file-excel"></i> Excelga yuklash</button>
+        </div>
+    </div>
+
+    <div class="tab-header">
+        <button class="tab-btn {% if active_tab == 'TabKunduzgi' %}active{% endif %}" onclick="openTab(event, 'TabKunduzgi')">Kunduzgi </button>
+        <button class="tab-btn {% if active_tab == 'TabSirtqi' %}active{% endif %}" onclick="openTab(event, 'TabSirtqi')">Sirtqi </button>
+    </div>
+
+    <div id="TabKunduzgi" class="tab-content {% if active_tab == 'TabKunduzgi' %}active{% endif %}">
+        {% if reports_list %}
+            {% for report in reports_list %}
+                {% if report.kunduzgi.rows %}
+                <div class="year-block">
+                    <div class="year-header">
+                        <span><i class="fas fa-calendar-alt"></i> Qabul yili: {{ report.year_name }}</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" style="width: 30px;">№</th>
+                                    <th rowspan="2" style="width: 200px;">Ta'lim yo'nalishi</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 1 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>1-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 2 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>2-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 3 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>3-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 4 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>4-KURS</th>
+                                    <th rowspan="2" class="course-title grad-title">BITIRGANLAR<br>SONI</th>
+                                </tr>
+                                <tr>
+                                    {% for i in "1234"|make_list %}
+                                        <th>Talaba<br>soni</th>
+                                        <th class="col-loss">Ketgan<br>soni</th>
+                                        <th class="col-loss">Foizi</th>
+                                        <th>Shartnoma<br>summasi</th>
+                                        <th class="col-loss">Yo'qotilgan<br>summa</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in report.kunduzgi.rows %}
+                                <tr>
+                                    <td>{{ row.index }}</td><td style="text-align: left;">{{ row.spec }}</td>
+                                    {% for cell in row.cells %}
+                                        <td {% if forloop.counter == report.current_course %}style="background-color: #d4edda; font-weight: bold; color: #155724;"{% endif %}>
+                                            {{ cell.count }}
+                                        </td>
+
+                                        <td class="col-loss">
+                                            {% if cell.show_loss and cell.lost > 0 %}
+                                                <a href="{% url 'admin:students_student_changelist' %}?id__in={{ cell.lost_ids|join:',' }}&status=all"
+                                                   target="_blank"
+                                                   title="Talabalar ro'yxatini ko'rish"
+                                                   style="color: inherit; text-decoration: underline; cursor: pointer; font-weight: bold;">
+                                                    {{ cell.lost }}
+                                                </a>
+                                            {% elif cell.show_loss and cell.lost == 0 %}
+                                            {% endif %}
+                                        </td>
+
+                                        <td class="col-loss">
+                                            {% if cell.percent > 0 %}{{ cell.percent|floatformat:1 }}%{% endif %}
+                                        </td>
+                                        <td class="money" {% if forloop.counter == report.current_course %}style="background-color: #d4edda; font-weight: bold; color: #155724;"{% endif %}>
+                                            {% if cell.amount > 0 %}{{ cell.amount|floatformat:0|intcomma }}{% endif %}
+                                        </td>
+                                        <td class="money-loss">
+                                            {% if cell.lost_amount > 0 %}{{ cell.lost_amount|floatformat:0|intcomma }}{% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    <td style="font-weight:bold; color:#155724;">{{ row.grad.graduated }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2" style="text-align:right;">JAMI:</td>
+                                    {% for t in report.kunduzgi.grand_total.cells %}
+                                        <td>{{ t.count }}</td>
+                                        <td>{{ t.lost }}</td>
+                                        <td>{{ t.percent|floatformat:1 }}%</td>
+                                        <td class="money">{{ t.amount|floatformat:0|intcomma }}</td>
+                                        <td class="money">{{ t.display_lost_amt|floatformat:0|intcomma }}</td>
+                                    {% endfor %}
+                                    <td>{{ report.kunduzgi.grand_total.grad.graduated }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="summary-box">
+                        <div class="summary-row"><span>Jami shartnoma:</span> <span class="sum-val">{{ report.kunduzgi.global_stats.total_contract|floatformat:0|intcomma }} so'm</span></div>
+                        <div class="summary-row"><span>Jami yo'qotilgan:</span> <span class="sum-val" style="color: #c62828;">{{ report.kunduzgi.global_stats.total_lost|floatformat:0|intcomma }} so'm</span></div>
+                        <div class="summary-row"><span>Yo'qotish foizi:</span> <span class="sum-val" style="color: #c62828;">{{ report.kunduzgi.global_stats.lost_percent|floatformat:2 }}%</span></div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p style="text-align:center; color:#777; padding:20px;">Hech qanday ma'lumot topilmadi.</p>
+        {% endif %}
+    </div>
+
+    <div id="TabSirtqi" class="tab-content {% if active_tab == 'TabSirtqi' %}active{% endif %}">
+        {% if reports_list %}
+            {% for report in reports_list %}
+                {% if report.sirtqi.rows %}
+                <div class="year-block">
+                    <div class="year-header">
+                        <span><i class="fas fa-calendar-alt"></i> Qabul yili: {{ report.year_name }}</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" style="width: 30px;">№</th>
+                                    <th rowspan="2" style="width: 200px;">Ta'lim yo'nalishi</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 1 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>1-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 2 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>2-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 3 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>3-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 4 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>4-KURS</th>
+                                    <th colspan="5" class="course-title" {% if report.current_course == 5 %}style="background-color: #d4edda !important; color: #155724; border-color: #c3e6cb;"{% endif %}>5-KURS</th>
+                                    <th rowspan="2" class="course-title grad-title">BITIRUV<br>SONI</th>
+                                </tr>
+                                <tr>
+                                    {% for i in "12345"|make_list %}
+                                        <th>Talaba<br>soni</th>
+                                        <th class="col-loss">Ketgan<br>soni</th>
+                                        <th class="col-loss">Foizi</th>
+                                        <th>Shartnoma<br>summasi</th>
+                                        <th class="col-loss">Yo'qotilgan<br>summa</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in report.sirtqi.rows %}
+                                <tr>
+                                    <td>{{ row.index }}</td><td style="text-align: left;">{{ row.spec }}</td>
+                                    {% for cell in row.cells %}
+                                        <td {% if forloop.counter == report.current_course %}style="background-color: #d4edda; font-weight: bold; color: #155724;"{% endif %}>
+                                            {{ cell.count }}
+                                        </td>
+
+                                        <td class="col-loss">
+                                            {% if cell.show_loss and cell.lost > 0 %}
+                                                <a href="{% url 'admin:students_student_changelist' %}?id__in={{ cell.lost_ids|join:',' }}&status=all"
+                                                   target="_blank"
+                                                   title="Talabalar ro'yxatini ko'rish"
+                                                   style="color: inherit; text-decoration: underline; cursor: pointer; font-weight: bold;">
+                                                    {{ cell.lost }}
+                                                </a>
+                                            {% elif cell.show_loss and cell.lost == 0 %}
+                                            {% endif %}
+                                        </td>
+
+                                        <td class="col-loss">
+                                            {% if cell.percent > 0 %}{{ cell.percent|floatformat:1 }}%{% endif %}
+                                        </td>
+                                        <td class="money" {% if forloop.counter == report.current_course %}style="background-color: #d4edda; font-weight: bold; color: #155724;"{% endif %}>
+                                            {% if cell.amount > 0 %}{{ cell.amount|floatformat:0|intcomma }}{% endif %}
+                                        </td>
+                                        <td class="money-loss">
+                                            {% if cell.lost_amount > 0 %}{{ cell.lost_amount|floatformat:0|intcomma }}{% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    <td style="font-weight:bold; color:#155724;">{{ row.grad.graduated }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2" style="text-align:right;">JAMI:</td>
+                                    {% for t in report.sirtqi.grand_total.cells %}
+                                        <td>{{ t.count }}</td>
+                                        <td>{{ t.lost }}</td>
+                                        <td>{{ t.percent|floatformat:1 }}%</td>
+                                        <td class="money">{{ t.amount|floatformat:0|intcomma }}</td>
+                                        <td class="money">{{ t.display_lost_amt|floatformat:0|intcomma }}</td>
+                                    {% endfor %}
+                                    <td>{{ report.sirtqi.grand_total.grad.graduated }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="summary-box">
+                        <div class="summary-row"><span>Jami shartnoma:</span> <span class="sum-val">{{ report.sirtqi.global_stats.total_contract|floatformat:0|intcomma }} so'm</span></div>
+                        <div class="summary-row"><span>Jami yo'qotilgan:</span> <span class="sum-val" style="color: #c62828;">{{ report.sirtqi.global_stats.total_lost|floatformat:0|intcomma }} so'm</span></div>
+                        <div class="summary-row"><span>Yo'qotish foizi:</span> <span class="sum-val" style="color: #c62828;">{{ report.sirtqi.global_stats.lost_percent|floatformat:2 }}%</span></div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p style="text-align:center; color:#777; padding:20px;">Hech qanday ma'lumot topilmadi.</p>
+        {% endif %}
+    </div>
+
+    {% if reasons_stat or du_reasons_stat or student_reasons_stat %}
+    <div style="margin-top: 40px; border-top: 2px solid #ddd; padding-top: 20px;">
+        <h2 style="color: #2c3e50; text-align:center; margin-bottom: 20px;"> YIG'MA TAHLIL</h2>
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+
+            <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; color: #8e44ad; border-bottom: 2px solid #9b59b6; padding-bottom: 10px; font-size: 16px;">
+                    1. Tashabbuskor bo'yicha taqsimot (Umumiy)
+                </h3>
+                <table class="report-table" style="margin-top: 10px;">
+                    <thead>
+                        <tr>
+                            <th style="background-color: #f3e5f5; color: #8e44ad;">Tashabbuskor</th>
+                            <th style="background-color: #f3e5f5; color: #8e44ad; width: 60px;">Soni</th>
+                            <th style="background-color: #f3e5f5; color: #8e44ad; width: 80px;">Ulushi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in initiator_stat %}
+                        <tr>
+                            <td style="text-align: left; font-weight: 500;">{{ item.name }}</td>
+                            <td style="font-weight: bold;">{{ item.count }}</td>
+                            <td>
+                                <div style="background: #f3e5f5; border-radius: 3px; height: 16px; width: 100%; position: relative;">
+                                    <div style="background: #8e44ad; height: 100%; width: {{ item.percent|floatformat:0 }}%;"></div>
+                                    <span style="position: absolute; top: 0; left: 5px; font-size: 10px; line-height: 16px; color: #333;">{{ item.percent|floatformat:1 }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="color:#777;">Ma'lumot yo'q</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background-color: #f3e5f5; color: #8e44ad; font-weight: bold;">
+                            <td style="text-align: right; border-top: 2px solid #9b59b6;">JAMI:</td>
+                            <td style="border-top: 2px solid #9b59b6;">{{ stats_totals.global }}</td>
+                            <td style="border-top: 2px solid #9b59b6;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 450px; background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top: 0; color: #2980b9; border-bottom: 2px solid #3498db; padding-bottom: 10px; font-size: 16px;">
+                        2. DU tashabbusi bilan (Sabablar)
+                    </h3>
+                    <table class="report-table" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th style="background-color: #e3f2fd; color: #2980b9;">Sabab nomi</th>
+                                <th style="background-color: #e3f2fd; color: #2980b9; width: 60px;">Soni</th>
+                                <th style="background-color: #e3f2fd; color: #2980b9; width: 80px;">Ulushi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in du_reasons_stat %}
+                            <tr>
+                                <td style="text-align: left; font-weight: 500;">{{ item.name }}</td>
+                                <td style="font-weight: bold;">{{ item.count }}</td>
+                                <td>
+                                    <div style="background: #e1f5fe; border-radius: 3px; height: 16px; width: 100%; position: relative;">
+                                        <div style="background: #2980b9; height: 100%; width: {{ item.percent|floatformat:0 }}%;"></div>
+                                        <span style="position: absolute; top: 0; left: 5px; font-size: 10px; line-height: 16px; color: #333;">{{ item.percent|floatformat:1 }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" style="color:#777;">Ma'lumot yo'q</td></tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background-color: #e3f2fd; color: #2980b9; font-weight: bold;">
+                                <td style="text-align: right; border-top: 2px solid #3498db;">JAMI:</td>
+                                <td style="border-top: 2px solid #3498db;">{{ stats_totals.du }}</td>
+                                <td style="border-top: 2px solid #3498db;">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div style="flex: 1; min-width: 450px; background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top: 0; color: #27ae60; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; font-size: 16px;">
+                        3. Talaba tashabbusi bilan (Sabablar)
+                    </h3>
+                    <table class="report-table" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th style="background-color: #e8f5e9; color: #27ae60;">Sabab nomi</th>
+                                <th style="background-color: #e8f5e9; color: #27ae60; width: 60px;">Soni</th>
+                                <th style="background-color: #e8f5e9; color: #27ae60; width: 80px;">Ulushi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in student_reasons_stat %}
+                            <tr>
+                                <td style="text-align: left; font-weight: 500;">{{ item.name }}</td>
+                                <td style="font-weight: bold;">{{ item.count }}</td>
+                                <td>
+                                    <div style="background: #e8f5e9; border-radius: 3px; height: 16px; width: 100%; position: relative;">
+                                        <div style="background: #27ae60; height: 100%; width: {{ item.percent|floatformat:0 }}%;"></div>
+                                        <span style="position: absolute; top: 0; left: 5px; font-size: 10px; line-height: 16px; color: #333;">{{ item.percent|floatformat:1 }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" style="color:#777;">Ma'lumot yo'q</td></tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background-color: #e8f5e9; color: #27ae60; font-weight: bold;">
+                                <td style="text-align: right; border-top: 2px solid #2ecc71;">JAMI:</td>
+                                <td style="border-top: 2px solid #2ecc71;">{{ stats_totals.student }}</td>
+                                <td style="border-top: 2px solid #2ecc71;">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; color: #c0392b; border-bottom: 2px solid #e74c3c; padding-bottom: 10px; font-size: 16px;">
+                    4. Barcha sabablar (Jami)
+                </h3>
+                <table class="report-table" style="margin-top: 10px;">
+                    <thead>
+                        <tr>
+                            <th style="background-color: #fce4ec; color: #c0392b;">Sabab nomi</th>
+                            <th style="background-color: #fce4ec; color: #c0392b; width: 60px;">Soni</th>
+                            <th style="background-color: #fce4ec; color: #c0392b; width: 80px;">Ulushi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in reasons_stat %}
+                        <tr>
+                            <td style="text-align: left; font-weight: 500;">{{ item.name }}</td>
+                            <td style="font-weight: bold;">{{ item.count }}</td>
+                            <td>
+                                <div style="background: #fce4ec; border-radius: 3px; height: 16px; width: 100%; position: relative;">
+                                    <div style="background: #e74c3c; height: 100%; width: {{ item.percent|floatformat:0 }}%;"></div>
+                                    <span style="position: absolute; top: 0; left: 5px; font-size: 10px; line-height: 16px; color: #333;">{{ item.percent|floatformat:1 }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="color:#777;">Ma'lumot yo'q</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background-color: #fce4ec; color: #c0392b; font-weight: bold;">
+                            <td style="text-align: right; border-top: 2px solid #e74c3c;">JAMI:</td>
+                            <td style="border-top: 2px solid #e74c3c;">{{ stats_totals.global }}</td>
+                            <td style="border-top: 2px solid #e74c3c;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span style="font-size: 18px; font-weight: bold;">Excelga eksport qilish</span>
+                <span class="close" onclick="closeExportModal()">&times;</span>
+            </div>
+            <form id="exportForm" action="{% url 'admin:hisobot_tsch_analiz_export' %}" method="GET">
+                <div style="margin-bottom: 15px; font-weight: bold; font-size: 14px; color: #555;">Qaysi ma'lumotlarni yuklab olmoqchisiz?</div>
+                <div class="modal-option">
+                    <input type=\"checkbox\" name=\"parts\" value=\"kunduzgi\" id=\"exp_kunduzgi\" checked>
+                    <label for=\"exp_kunduzgi\">Kunduzgi ta'lim tahlili</label>
+                </div>
+                <div class="modal-option">
+                    <input type=\"checkbox\" name=\"parts\" value=\"sirtqi\" id=\"exp_sirtqi\" checked>
+                    <label for=\"exp_sirtqi\">Sirtqi ta'lim tahlili</label>
+                </div>
+                <div class="modal-option">
+                    <input type=\"checkbox\" name=\"parts\" value=\"stats\" id=\"exp_stats\" checked>
+                    <label for=\"exp_stats\">Statistika (Sabablar, Tashabbuskor)</label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeExportModal()" style="padding: 8px 15px; cursor: pointer; margin-right: 10px;">Bekor qilish</button>
+                    <button type="button" onclick="submitExport()" style="background-color: #27ae60; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Yuklab olish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

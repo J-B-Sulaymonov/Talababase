@@ -1,0 +1,203 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static humanize %}
+
+{% block extrahead %}
+{{ block.super }}
+
+<div id="stats-data-source" style="display: none;">
+    <div class="stats-dashboard-widget">
+        <div class="stat-box students">
+            <div class="stat-icon"><i class="fas fa-list-ol"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Qarzdorliklar soni</span>
+                <span class="stat-value">{{ footer_stats.total_count|intcomma|default:"0" }} ta</span>
+            </div>
+        </div>
+        <div class="stat-box contract">
+            <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Jami hisoblangan</span>
+                <span class="stat-value">{{ footer_stats.total_debt|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+        <div class="stat-box paid">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">To'langan</span>
+                <span class="stat-value">{{ footer_stats.total_paid|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+        <div class="stat-box debt">
+            <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Umumiy Qoldiq</span>
+                <span class="stat-value">{{ footer_stats.remaining|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+        <div class="stat-box export-box" onclick="openExportModal()" title="Ma'lumotlarni Excelga yuklash">
+            <div class="stat-icon export-icon"><i class="fas fa-file-excel"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Export</span>
+                <span class="stat-value" style="font-size: 16px;">Excelga yuklash</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* UMUMIY STYLES */
+    #result_list { border-collapse: separate !important; border-spacing: 0 8px !important; width: 100%; border: none !important; margin-top: 10px; }
+    #result_list thead th { background-color: #2c3e50; color: #ffffff !important; font-weight: 600; text-transform: uppercase; font-size: 13px; padding: 16px 12px; border: none; vertical-align: middle; white-space: nowrap; }
+    #result_list thead th a { color: #ffffff !important; text-decoration: none; }
+    #result_list tbody tr { background-color: #ffffff; box-shadow: 0 3px 6px rgba(0,0,0,0.04); transition: all 0.2s; border-radius: 8px; }
+    #result_list tbody tr:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); z-index: 100; position: relative; }
+    #result_list tbody td, #result_list tbody th { padding: 12px 14px; vertical-align: middle; border: none; font-size: 14px; color: #2d3436; font-weight: 500; height: 50px; }
+    #result_list tbody tr td:first-child, #result_list tbody tr th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+    #result_list tbody tr td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+
+    .field-get_amount_display, .field-get_paid_display, .field-get_diff_display { text-align: right !important; font-family: 'Consolas', monospace; }
+
+    .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px; border-radius: 50px; font-size: 12px; font-weight: 700; min-width: 90px; white-space: nowrap; }
+    .badge-success { background-color: #e6fcf5; color: #0ca678; border: 1px solid #c3fae8; }
+    .badge-warning { background-color: #fff9db; color: #f08c00; border: 1px solid #ffec99; }
+    .badge-danger  { background-color: #fff5f5; color: #fa5252; border: 1px solid #ffc9c9; }
+    .group-badge { background: #f1f3f5; color: #495057; font-weight: 600; padding: 4px 8px; border-radius: 4px; font-size: 12px; border: 1px solid #dee2e6; display: inline-block; margin-top: 4px;}
+
+    /* STATISTIKA WIDGET STYLES */
+    .stats-dashboard-widget { display: flex; gap: 20px; padding: 20px 0; margin-bottom: 5px; flex-wrap: wrap; }
+    .stat-box { display: flex; align-items: center; padding: 15px 20px; border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.02); min-width: 180px; flex: 1; transition: transform 0.2s; cursor: default; }
+    .stat-box:hover { transform: translateY(-3px); }
+    .stat-box.students .stat-icon { color: #fff; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stat-box.contract .stat-icon { color: #fff; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stat-box.paid .stat-icon { color: #fff; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .stat-box.debt .stat-icon { color: #fff; background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+    .stat-icon { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 20px; margin-right: 15px; flex-shrink: 0; }
+    .stat-info { display: flex; flex-direction: column; }
+    .stat-label { font-size: 11px; text-transform: uppercase; color: #adb5bd; font-weight: 700; }
+    .stat-value { font-size: 20px; font-weight: 800; color: #212529; white-space: nowrap; }
+    .stat-box.export-box { background: #fff; cursor: pointer; flex: 0 0 auto; min-width: 180px; }
+    .stat-box.export-box .stat-icon { background: linear-gradient(135deg, #107c41 0%, #0c5e31 100%); color: #fff; box-shadow: 0 4px 6px rgba(16, 124, 65, 0.2); }
+    .stat-box.export-box:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); }
+
+    /* EXPORT MODAL STYLES (Clean White Design) */
+    .export-modal { display: none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .export-modal-content { background-color: #f8f9fa; border-radius: 16px; width: 90%; max-width: 850px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.25); display: flex; flex-direction: column; }
+    .export-modal-header { background: #fff; padding: 20px 30px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-radius: 16px 16px 0 0; }
+    .export-modal-header h3 { margin: 0; color: #212529; font-size: 20px; font-weight: 700; display: flex; align-items: center; }
+    .close-modal { font-size: 24px; color: #adb5bd; cursor: pointer; transition: 0.2s; }
+    .close-modal:hover { color: #fa5252; }
+
+    .export-modal-body { padding: 30px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; }
+
+    .field-card { background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e9ecef; }
+    .field-card-title { font-size: 16px; font-weight: 700; color: #2d3436; margin-bottom: 20px; display: flex; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #f1f3f5; }
+    .field-card-title i { margin-right: 12px; color: #339af0; background: #e7f5ff; padding: 8px; border-radius: 8px; font-size: 18px; }
+
+    .checkbox-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .checkbox-item { display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #495057; font-weight: 500; transition: 0.2s; }
+    .checkbox-item:hover { color: #212529; }
+    .checkbox-item input {
+        accent-color: #107c41;
+        margin-right: 12px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        border: 2px solid #adb5bd;
+        border-radius: 4px;
+    }
+
+    .export-modal-footer { background: #fff; padding: 20px 30px; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 15px; border-radius: 0 0 16px 16px; position: sticky; bottom: 0; z-index: 10; }
+    .btn-outline { background: transparent; border: 1px solid #ced4da; color: #495057; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-outline:hover { background: #f8f9fa; border-color: #adb5bd; }
+    .btn-primary-action { background: #107c41; color: white; border: none; padding: 10px 30px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(16, 124, 65, 0.2); transition: 0.2s; }
+    .btn-primary-action:hover { background: #0c5e31; transform: translateY(-1px); }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const statsHTML = document.getElementById('stats-data-source').innerHTML;
+    const statsDiv = document.createElement('div');
+    statsDiv.innerHTML = statsHTML;
+    const searchBar = document.getElementById('changelist-search');
+    const tableForm = document.getElementById('changelist-form');
+    let targetForStats = null;
+    let filterBar = document.getElementById('changelist-filter');
+    if (searchBar) {
+        targetForStats = filterBar || searchBar;
+        targetForStats.parentNode.insertBefore(statsDiv, targetForStats.nextSibling);
+    } else if (tableForm) {
+        tableForm.parentNode.insertBefore(statsDiv, tableForm);
+    }
+});
+function openExportModal() {
+    document.getElementById('changelist_qs').value = window.location.search || '';
+    document.getElementById('exportModal').style.display = 'flex';
+}
+function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+function toggleAllCheckboxes() {
+    const checkboxes = document.querySelectorAll('#exportForm input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(c => c.checked);
+    checkboxes.forEach(c => c.checked = !allChecked);
+}
+function submitExport() {
+    document.getElementById('exportForm').submit();
+    closeExportModal();
+}
+window.onclick = function(e) { if (e.target == document.getElementById('exportModal')) closeExportModal(); }
+</script>
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+
+    <div id="exportModal" class="export-modal">
+        <div class="export-modal-content">
+            <div class="export-modal-header">
+                <h3><i class="fas fa-file-excel" style="color: #107c41; margin-right: 12px;"></i> Fan qarzdorliklarini yuklash</h3>
+                <span class="close-modal" onclick="closeExportModal()">&times;</span>
+            </div>
+
+            <form id="exportForm" method="POST" action="{% url 'admin:subjectdebt_export_excel' %}">
+                {% csrf_token %}
+                <input type="hidden" name="changelist_qs" id="changelist_qs" value="">
+
+                <div class="export-modal-body">
+                    <div class="field-card">
+                        <div class="field-card-title">
+                            <i class="fas fa-user-graduate"></i> Talaba va Guruh
+                        </div>
+                        <div class="checkbox-list">
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="student__full_name" checked> Talaba F.I.SH.</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="student__phone_number" checked> Telefon</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="student__group__name" checked> Guruh</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="student__course_year" checked> Kurs</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="semester" checked> Semestr</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="student__education_form" checked> Ta'lim shakli</label>
+                        </div>
+                    </div>
+
+                    <div class="field-card">
+                        <div class="field-card-title">
+                            <i class="fas fa-book"></i> Fan va Hisob-kitob
+                        </div>
+                        <div class="checkbox-list">
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="subject__name" checked> Fan nomi</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="credit" checked> Kredit</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="amount" checked> Hisoblangan summa</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="amount_summ" checked> To'langan summa</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="debt_type"> Qarz turi</label>
+                            <label class="checkbox-item"><input type="checkbox" name="fields" value="status"> Status</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-modal-footer">
+                    <button type="button" class="btn-outline" onclick="toggleAllCheckboxes()">Barchasini tanlash</button>
+                    <button type="button" class="btn-primary-action" onclick="submitExport()">
+                        <i class="fas fa-file-download"></i> Yuklash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

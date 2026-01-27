@@ -1,0 +1,674 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}Profil: {{ employee.last_name }} {{ employee.first_name }} | LMS{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- GLOBAL RESET & VARIABLES --- */
+        :root {
+            --primary: #3b82f6;       /* Asosiy ko'k */
+            --primary-dark: #1d4ed8;
+            --bg-page: #f1f5f9;       /* Orqa fon */
+            --bg-card: #ffffff;       /* Karta foni */
+            --text-main: #0f172a;     /* Qora matn */
+            --text-muted: #64748b;    /* Kulrang matn */
+            --border: #e2e8f0;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        /* --- LAYOUT FIX --- */
+        #content-main {
+            width: 100% !important;
+            max-width: 100% !important;
+            display: block;
+        }
+
+        .breadcrumbs {
+            margin-bottom: 20px !important;
+            background: transparent !important;
+            padding: 0 !important;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+        }
+
+        /* --- CONTAINER STRUCTURE --- */
+        .profile-container {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 25px;
+            width: 100%;
+            align-items: start;
+        }
+
+        /* --- 1. SIDEBAR (CHAP TOMON) --- */
+        .profile-sidebar {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .sidebar-cover {
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            width: 100%;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: -70px auto 10px;
+        }
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--bg-card);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: #fff;
+        }
+
+        .user-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 5px 15px;
+            line-height: 1.3;
+        }
+        .user-role {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .status-badge {
+            align-self: center;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+        .status-active { background: #dcfce7; color: #15803d; }
+        .status-pending { background: #fef3c7; color: #b45309; }
+        .status-dismissed { background: #fee2e2; color: #991b1b; }
+
+        .action-buttons {
+            padding: 0 20px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-action:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .btn-primary { background: var(--primary); color: white; border: none; }
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .qr-section {
+            border-top: 1px solid #f1f5f9;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #f8fafc;
+        }
+        .id-text { font-size: 10px; color: var(--text-muted); margin-top: 5px; font-weight: 600; font-family: monospace; }
+
+        /* --- 2. CONTENT (O'NG TOMON) --- */
+        .profile-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .tabs-header {
+            display: flex;
+            background: var(--bg-card);
+            padding: 6px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            gap: 5px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .tab-btn:hover { background: #f1f5f9; color: var(--text-main); }
+        .tab-btn.active { background: #eff6ff; color: var(--primary); }
+
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 25px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            height: 100%;
+        }
+
+        .card-header {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .card-header i { color: var(--primary); }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px dashed #f1f5f9;
+            font-size: 14px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .label { color: var(--text-muted); font-weight: 500; }
+        .value { color: var(--text-main); font-weight: 600; text-align: right; }
+
+
+
+        /* --- PRINT --- */
+        @media print {
+            body { background: white; }
+            .profile-container { display: block; }
+            .profile-sidebar { position: static; box-shadow: none; border: 1px solid #000; margin-bottom: 20px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 20px; text-align: left; }
+            .sidebar-cover, .action-buttons, .tabs-header { display: none; }
+            .avatar-container { margin: 0; width: 80px; height: 80px; }
+            .user-name { margin: 0 0 0 15px; }
+            .qr-section { border: none; padding: 0; background: none; }
+            .card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 15px; }
+            .info-grid { display: block; }
+        }
+/* --- ZAMONAVIY GLASSMORPHISM STILLARI --- */
+.glass-collapsible {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    height: fit-content; /* Balandlikni ichidagi ma'lumotga qarab moslaydi */
+}
+
+.glass-collapsible:hover {
+    background: rgba(255, 255, 255, 0.7) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
+}
+
+.glass-header {
+    padding: 20px 25px;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 15px;
+}
+
+.glass-header i.main-icon {
+    margin-right: 12px;
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.arrow-icon {
+    margin-left: auto;
+    transition: transform 0.4s ease;
+    color: var(--text-muted);
+}
+
+.is-open .arrow-icon {
+    transform: rotate(180deg);
+}
+
+.collapsible-content {
+    display: none;
+    padding: 0 25px 25px 25px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    animation: fadeIn 0.4s ease;
+}
+
+.is-open .collapsible-content {
+    display: block;
+}
+
+/* Ichki elementlar dizayni */
+.glass-item {
+    display: flex;
+    align-items: center;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    margin-top: 12px;
+    transition: 0.2s;
+}
+
+.glass-item:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: var(--primary);
+}
+
+.glass-item .doc-icon-box {
+    width: 42px;
+    height: 42px;
+    background: #eff6ff;
+    color: var(--primary);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 18px;
+}
+
+.doc-meta h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.doc-meta span {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.glass-link {
+    margin-left: auto;
+    width: 36px;
+    height: 36px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    text-decoration: none;
+    transition: 0.2s;
+}
+
+.glass-link:hover {
+    background: var(--primary);
+    color: #fff;
+}
+        @media (max-width: 992px) {
+            .profile-container { grid-template-columns: 1fr; }
+            .profile-sidebar { position: static; margin-bottom: 20px; padding-bottom: 20px; }
+            .sidebar-cover { height: 80px; }
+            .avatar-container { margin-top: -40px; }
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+        &rsaquo; <a href="{% url 'admin:kadrlar_employee_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+        &rsaquo; {{ employee.last_name }} {{ employee.first_name }}
+    </div>
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-container">
+
+    <div class="profile-sidebar">
+        <div class="sidebar-cover"></div>
+        <div class="avatar-container">
+            {% if employee.photo %}
+                <img src="{{ employee.photo.url }}" alt="Avatar" class="avatar">
+            {% else %}
+                <img src="{% static 'admin/img/icon-unknown.svg' %}" alt="No Photo" class="avatar">
+            {% endif %}
+        </div>
+
+        <h2 class="user-name">{{ employee.last_name }}<br>{{ employee.first_name }}</h2>
+        <div class="status-badge status-{{ employee.status }}">
+            {{ employee.get_status_display }}
+        </div>
+
+        <div class="action-buttons">
+            <button onclick="window.print()" class="btn-action btn-primary">
+                <i class="fas fa-print"></i> Chop etish
+            </button>
+            <a href="{% url 'admin:kadrlar_employee_change' employee.id %}" class="btn-action">
+                <i class="fas fa-pen"></i> Tahrirlash
+            </a>
+        </div>
+
+        <div class="qr-section">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ employee.passport_info }}" alt="QR" style="border-radius: 6px;">
+            <div class="id-text">ID: {{ employee.id|stringformat:"04d" }}</div>
+        </div>
+    </div>
+
+    <div class="profile-content">
+
+        <div class="tabs-header">
+            <button class="tab-btn active" onclick="openTab(event, 'tab-general')">
+                <i class="fas fa-user-circle"></i> Umumiy
+            </button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-kpi')">
+                <i class="fas fa-chart-pie"></i> KPI va Testlar
+            </button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-survey')">
+                <i class="fas fa-comments"></i> Talabalar fikri
+            </button>
+        </div>
+
+        <div id="tab-general" class="tab-pane active">
+            <div class="info-grid">
+
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-id-card"></i> Shaxsiy ma'lumotlar
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Pasport:</span>
+                        <span class="value">{{ employee.passport_info }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">JSHSHIR (PINFL):</span>
+                        <span class="value">{{ employee.pid }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Tug'ilgan sana:</span>
+                        <span class="value">{{ employee.birth_date|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Jinsi:</span>
+                        <span class="value">{{ employee.get_gender_display }}</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-briefcase"></i> Ish faoliyati
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Bo'lim / Kafedra:</span>
+                        <span class="value" style="color: var(--primary);">{{ employee.department.name }}</span>
+                    </div>
+
+                    <div class="info-row">
+                        <span class="label">Lavozim:</span>
+                        <span class="value">{{ employee.position|default:"-" }}</span>
+                    </div>
+
+                    <div class="info-row">
+                        <span class="label">Shtat turi:</span>
+                        <span class="value">
+                            {% if teacher.work_type_hourly %}Soatbay{% else %}Asosiy{% endif %}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Ishga kirgan sana:</span>
+                        <span class="value">{{ employee.hired_at|default:"-" }}</span>
+                    </div>
+                    {% if teacher %}
+                    <div class="info-row">
+                        <span class="label">O'quv yuklamasi:</span>
+                        <span class="value">
+                            {% if teacher.schedule_approved %}
+                                <span style="color: #16a34a;"><i class="fas fa-check"></i> Tasdiqlangan</span>
+                            {% else %}
+                                <span style="color: #ea580c;"><i class="fas fa-clock"></i> Kutilmoqda</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="glass-collapsible" onclick="this.classList.toggle('is-open')">
+    <div class="glass-header">
+        <i class="fas fa-folder-open main-icon"></i>
+        <span>Shaxsiy hujjatlar</span>
+        <span class="badge bg-primary-subtle text-primary ms-2" style="font-size: 10px; padding: 3px 8px; border-radius: 10px;">{{ employee.documents.count }}</span>
+        <i class="fas fa-chevron-down arrow-icon"></i>
+    </div>
+
+    <div class="collapsible-content">
+        {% for doc in employee.documents.all %}
+        <div class="glass-item">
+            <div class="doc-icon-box"><i class="fas fa-file-pdf"></i></div>
+            <div class="doc-meta">
+                <h4>{{ doc.get_doc_type_display }}</h4>
+                <span>№ {{ doc.number }} • {{ doc.uploaded_at|date:"d.m.Y" }}</span>
+            </div>
+            <a href="{{ doc.file.url }}" target="_blank" class="glass-link" title="Ko'rish">
+                <i class="fas fa-eye"></i>
+            </a>
+        </div>
+        {% empty %}
+        <div style="padding: 20px; color: var(--text-muted); font-size: 13px; text-align: center; font-style: italic;">Hujjatlar mavjud emas</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="glass-collapsible" onclick="this.classList.toggle('is-open')">
+    <div class="glass-header">
+        <i class="fas fa-file-signature main-icon" style="color: #f59e0b;"></i>
+        <span>Buyruqlar</span>
+        <span class="badge bg-warning-subtle text-warning ms-2" style="font-size: 10px; padding: 3px 8px; border-radius: 10px;">{{ employee.orders.count }}</span>
+        <i class="fas fa-chevron-down arrow-icon"></i>
+    </div>
+
+    <div class="collapsible-content">
+        {% for order in employee.orders.all %}
+        <div class="glass-item" style="border-left: 3px solid #f59e0b;">
+            <div class="doc-icon-box" style="color: #f59e0b; background: #fffbeb;"><i class="fas fa-history"></i></div>
+            <div class="doc-meta">
+                <h4>{{ order.get_order_type_display }}</h4>
+                <span>№ {{ order.number }} • {{ order.date|date:"d.m.Y" }}</span>
+            </div>
+            {% if order.document %}
+            <a href="{{ order.document.url }}" target="_blank" class="glass-link" title="Ochish">
+                <i class="fas fa-external-link-alt"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div style="padding: 20px; color: var(--text-muted); font-size: 13px; text-align: center; font-style: italic;">Buyruqlar mavjud emas</div>
+        {% endfor %}
+    </div>
+</div>
+
+            </div>
+        </div>
+
+        <div id="tab-kpi" class="tab-pane">
+            {% if quiz_results %}
+                <div class="info-grid" style="grid-template-columns: 1fr;">
+
+                    {% for item in quiz_results %}
+                    <div class="card">
+                        <div class="card-header" style="justify-content: space-between; border-bottom: 2px solid #f1f5f9;">
+                            <span style="font-size: 18px; color: #1e293b;">
+                                <i class="fas fa-clipboard-check" style="color: var(--primary);"></i> {{ item.obj.quiz.title }}
+                            </span>
+                            <span style="font-size: 13px; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 20px;">
+                                <i class="far fa-calendar-alt"></i> {{ item.obj.created_at|date:"d.m.Y H:i" }}
+                            </span>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; margin-top: 20px;">
+
+                            <div>
+                                {% if item.struct.analysis %}
+                                <div>
+                                    <h4 style="font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fas fa-chart-pie" style="color: #64748b;"></i> Yo'nalishlar bo'yicha natijalar (Reyting)
+                                    </h4>
+                                    <table style="width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                                        <thead style="background: #f8fafc;">
+                                            <tr>
+                                                <th style="text-align: left; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; color: #475569; font-size: 12px; text-transform: uppercase;">Mezon</th>
+                                                <th style="text-align: center; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; color: #475569; font-size: 12px; text-transform: uppercase; width: 100px;">Ball</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in item.struct.analysis|dictsortreversed:"score" %}
+                                            <tr style="border-bottom: 1px solid #f1f5f9; {% if forloop.first %}background: #dcfce7; border-left: 4px solid #16a34a;{% else %}background: #fff;{% endif %}">
+                                                <td style="padding: 12px 15px; color: {% if forloop.first %}#14532d{% else %}#334155{% endif %}; font-weight: {% if forloop.first %}700{% else %}500{% endif %};">
+                                                    {{ row.category }}
+                                                    {% if forloop.first %} <i class="fas fa-trophy" style="color: #16a34a; margin-left: 5px;"></i>{% endif %}
+                                                </td>
+                                                <td style="padding: 12px 15px; text-align: center;">
+                                                    <span style="{% if forloop.first %}background: #16a34a; color: white;{% else %}background: #eff6ff; color: var(--primary);{% endif %} padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 13px;">
+                                                        {{ row.score }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                {% if item.scale %}
+                                <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #92400e; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fas fa-info-circle"></i> Baholash Mezonlari
+                                    </h4>
+                                    <p style="font-size: 11px; color: #b45309; margin-bottom: 10px;">
+                                        Ballar oralig'i va tavsiflar:
+                                    </p>
+                                    <ul style="list-style: none; padding: 0; margin: 0;">
+                                        {% for info in item.scale %}
+                                        <li style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px;">
+                                            <span style="font-weight: 700; color: #92400e; font-size: 12px; white-space: nowrap; margin-right: 10px;">
+                                                {{ info.min_score }} - {{ info.max_score }}
+                                            </span>
+                                            <span style="font-size: 12px; color: #78350f; text-align: right; line-height: 1.2;">
+                                                {{ info.conclusion }}
+                                            </span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                </div>
+            {% else %}
+                <div class="card" style="text-align: center; padding: 60px 20px;">
+                    <div style="width: 80px; height: 80px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <i class="fas fa-clipboard-list" style="font-size: 35px; color: #94a3b8;"></i>
+                    </div>
+                    <h3 style="color: #334155; font-size: 18px; margin-bottom: 8px;">Natijalar mavjud emas</h3>
+                    <p style="color: #64748b; font-size: 14px;">Ushbu xodim hali hech qanday KPI yoki Psixologik test topshirmagan.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div id="tab-survey" class="tab-pane">
+            <div class="card" style="text-align: center; padding: 50px;">
+                <i class="fas fa-users" style="font-size: 40px; color: #cbd5e1; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--text-main);">Talabalar fikri</h3>
+                <p style="color: var(--text-muted);">So'rovnomalar mavjud emas.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-pane");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).style.display = "block";
+        setTimeout(() => {
+            document.getElementById(tabName).classList.add("active");
+        }, 10);
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+
+{% endblock %}

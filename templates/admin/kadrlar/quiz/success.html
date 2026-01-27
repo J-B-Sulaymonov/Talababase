@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natijalar</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+
+        /* Header Card */
+        .card-header { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; }
+        .icon { font-size: 50px; display: block; margin-bottom: 10px; }
+        h1 { color: #0f5132; margin: 0; }
+        p { color: #666; }
+
+        /* Analysis Card */
+        .analysis-card { background: white; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; }
+        .analysis-header { background: #3b82f6; color: white; padding: 15px 20px; font-weight: bold; font-size: 18px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; color: #444; font-weight: 600; width: 30%; }
+        td.score { font-weight: bold; color: #3b82f6; font-size: 18px; text-align: center; width: 10%; }
+        td.desc { color: #333; line-height: 1.5; }
+        tr:last-child td { border-bottom: none; }
+
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-size: 12px; margin-top: 5px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card-header">
+            <span class="icon">✅</span>
+            <h1>Test yakunlandi!</h1>
+            <p>{{ employee.last_name }} {{ employee.first_name }}</p>
+        </div>
+
+
+    </div>
+</body>
+</html>

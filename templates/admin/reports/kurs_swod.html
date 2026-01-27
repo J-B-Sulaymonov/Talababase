@@ -1,0 +1,524 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --bg-color: #f4f6f9;
+        --dark-btn-bg: #495057;
+        --dark-btn-hover: #343a40;
+        --green-btn: #10ac84;
+        --red-btn: #ff6b6b;
+    }
+
+    .report-container {
+        font-family: 'Inter', sans-serif;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+
+    /* HEADER */
+    .report-header {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #fff; padding: 20px 30px; border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;
+    }
+    .report-title h1 { font-size: 24px; font-weight: 700; color: var(--primary-color); margin: 0; }
+    .report-title p { margin: 5px 0 0; color: #7f8c8d; font-size: 14px; }
+
+    .header-actions { display: flex; gap: 15px; }
+    .action-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;
+        text-decoration: none; cursor: pointer; border: none; color: #fff !important;
+        transition: all 0.2s; line-height: 1;
+    }
+    .btn-print { background-color: #34495e; }
+    .btn-excel { background-color: #27ae60; }
+
+    /* --- PATOK STYLES --- */
+    .patok-title {
+        font-size: 20px; color: #2c3e50; font-weight: 700;
+        border-left: 5px solid #2c3e50; padding-left: 10px; margin-bottom: 15px;
+    }
+    .patok-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+    .patok-card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e0e0e0; transition: transform 0.2s; }
+    .patok-card:hover { transform: translateY(-3px); }
+    .patok-header { padding: 15px; background: #34495e; color: white; text-align: center; }
+    .patok-header h3 { margin: 0; font-size: 20px; font-weight: 700; }
+    .patok-header span { font-size: 16px; opacity: 0.9; display: block; margin-top: 4px; }
+    .patok-body { padding: 15px; }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 18px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
+    .stat-row:last-child { border-bottom: none; margin-bottom: 0; }
+    .stat-label { color: #7f8c8d; font-weight: 500; }
+    .stat-value { font-weight: 700; color: #2c3e50; font-family: 'Consolas', monospace; }
+    .patok-1 .patok-header { background: linear-gradient(135deg, #f39c12, #e67e22); }
+    .patok-2 .patok-header { background: linear-gradient(135deg, #3498db, #2980b9); }
+    .patok-3 .patok-header { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+    .patok-4 .patok-header { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+    .val-debt { color: #e74c3c; } .val-paid { color: #27ae60; }
+
+    /* --- FILTER STYLES --- */
+    .filters-wrapper {
+        display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .year-select {
+        padding: 0 15px; border: 1px solid #dcdfe6; border-radius: 6px;
+        font-size: 14px; min-width: 150px; outline: none; height: 40px;
+        background-color: white; cursor: pointer;
+    }
+    .custom-dropdown { position: relative; display: inline-block; }
+    .dropdown-btn {
+        background-color: var(--dark-btn-bg); color: white; padding: 0 15px;
+        font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
+        cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+        min-width: 160px; text-transform: uppercase; height: 40px; transition: background-color 0.2s;
+    }
+    .dropdown-btn:hover { background-color: var(--dark-btn-hover); }
+    .dropdown-btn i { margin-left: 10px; font-size: 12px; }
+    .dropdown-content {
+        display: none; position: absolute; top: 45px; left: 0;
+        background-color: #fff; min-width: 220px; box-shadow: 0px 5px 15px rgba(0,0,0,0.15);
+        z-index: 100; border-radius: 8px; border: 1px solid #eee; overflow: hidden;
+    }
+    .show { display: block; }
+    .checkbox-list { max-height: 300px; overflow-y: auto; padding: 10px; }
+    .checkbox-item {
+        display: flex; align-items: center; gap: 10px; font-size: 14px; color: #34495e;
+        font-weight: 600; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.1s;
+        text-transform: capitalize;
+    }
+    .checkbox-item:hover { background-color: #f8f9fa; }
+    .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #3498db; }
+    .date-filter-box { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .date-input-group label { font-size: 12px; color: #7f8c8d; font-weight: 600; display: block; margin-bottom: 4px; }
+    .date-input { width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 13px; box-sizing: border-box;}
+    .dropdown-footer { display: flex; justify-content: space-between; padding: 10px; background-color: #f8f9fa; border-top: 1px solid #eee; gap: 10px; }
+    .footer-btn { flex: 1; padding: 8px; border: none; border-radius: 4px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: opacity 0.2s; }
+    .footer-btn:hover { opacity: 0.9; }
+    .btn-clear { background-color: var(--red-btn); }
+    .btn-apply { background-color: var(--green-btn); }
+
+    /* TABLE */
+    .table-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; width: 100%; }
+    .table-responsive { width: 100%; overflow-x: auto; overflow-y: auto; max-height: 75vh; position: relative; }
+
+    .custom-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 1500px; }
+
+    /* TABLE HEADER STYLES (YANGILANGAN) */
+    .custom-table thead th {
+        background-color: #2c3e50;
+        color: #ffffff;
+        text-align: center;
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.1);
+        font-size: 12px;
+        position: sticky;
+        background-clip: padding-box;
+    }
+
+    /* 1-QATOR */
+    .custom-table thead tr:first-child th {
+        top: 0;
+        z-index: 30;
+        height: 45px;
+    }
+
+    /* 2-QATOR */
+    .custom-table thead tr:nth-child(2) th {
+        top: 45px;
+        z-index: 25;
+        height: 30px;
+        border-top: 1px solid rgba(255,255,255,0.2);
+    }
+
+    /* Header ranglari */
+    .th-contract { background-color: #1e8449 !important; }
+    .th-paid { background-color: #2874a6 !important; }
+    .th-debt { background-color: #c0392b !important; }
+
+    .custom-table tbody td { padding: 8px 10px; border: 1px solid #e0e0e0; color: #2c3e50; vertical-align: middle; }
+    .text-center { text-align: center; } .text-right { text-align: right; } .text-bold { font-weight: 700; }
+    .row-total { background-color: #ecf0f1; font-weight: 700; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .badge-kunduzgi { background-color: #e8f5e9; color: #2e7d32; }
+    .badge-sirtqi { background-color: #e3f2fd; color: #1565c0; }
+    .badge-kechki { background-color: #fff3e0; color: #ef6c00; }
+    .money { font-family: 'Consolas', monospace; font-size: 20px; white-space: nowrap; }
+
+    .bg-green { background-color: #d4efdf; color: #145a32; }
+    .bg-blue { background-color: #d6eaf8; color: #154360; }
+    .bg-red { background-color: #fadbd8; color: #78281f; }
+
+    /* ======================================================= */
+    /* STICKY FOOTER STYLES (TUBUDAN O'ZGARTIRILDI) */
+    /* ======================================================= */
+
+    .grand-total td {
+        position: sticky;
+        z-index: 20;
+        font-weight: bold;
+        border-left: 1px solid #ddd;
+        border-right: 1px solid #ddd;
+    }
+
+    /* 1. ENG PASTKI QATOR (FOIZLAR) */
+    .grand-total tr:last-child td {
+        bottom: 0;
+        height: 35px; /* Aniq balandlik */
+        background-color: #d6eaf8; /* Och ko'k fon */
+        color: #2c3e50;
+        border-top: 2px solid #aaa;
+        font-style: italic;
+    }
+
+    /* 2. UNDAN TEPADAGI QATOR (UMUMIY JAMI) */
+    .grand-total tr:nth-last-child(2) td {
+        bottom: 35px; /* Pastki qatorning balandligi qadar joy tashlaymiz */
+        height: 40px; /* O'zining balandligi */
+        background-color: #34495e; /* To'q fon */
+        color: white;
+        border-bottom: none;
+        border-top: 2px solid #2c3e50;
+    }
+
+    /* Chap tomondagi yozuvlar ustma-ust tushganda o'qilishi uchun z-index */
+    .grand-total tr td:first-child {
+        z-index: 22;
+    }
+
+    /* PRINT */
+    @media print {
+        @page { size: landscape; margin: 5mm; }
+        .report-header, .filters-wrapper, .back-link, .header-actions, button, a { display: none !important; }
+        .report-container { padding: 0 !important; margin: 0 !important; }
+        .table-card { box-shadow: none !important; }
+        .patok-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 10px; page-break-inside: avoid; }
+        .patok-card { border: 1px solid #000; box-shadow: none; page-break-inside: avoid; }
+        body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; zoom: 65%; }
+        .table-responsive { max-height: none !important; overflow: visible !important; }
+        /* Printda sticky bo'lmasligi kerak */
+        .grand-total td { position: static !important; }
+    }
+</style>
+
+<div class="report-container">
+
+    <div class="report-header">
+        <div class="report-title">
+            <h1>Kontrakt Swod Hisoboti</h1>
+            <p>To'lov foizlari bo'yicha tahlil | Sana: {{ current_date }}</p>
+        </div>
+        <div class="header-actions">
+            <button onclick="window.print()" class="action-btn btn-print">
+                <i class="fas fa-print"></i> Chop etish
+            </button>
+
+            <a href="#" onclick="exportToExcel(event)" class="action-btn btn-excel">
+                <i class="fas fa-file-excel"></i> Excel yuklash
+            </a>
+        </div>
+    </div>
+
+    <h2 class="patok-title">
+        To'lov Rejasi (Patoklar bo'yicha tahlil)
+    </h2>
+    <div class="patok-grid">
+        {% for stat in patok_stats %}
+        <div class="patok-card patok-{{ stat.id }}">
+            <div class="patok-header">
+                <h3>{{ stat.id }}-Patok ({{ stat.label }})</h3>
+                <span>Muddati: {{ stat.date }}</span>
+            </div>
+            <div class="patok-body">
+                <div class="stat-row">
+                    <span class="stat-label">Reja ({{ stat.target_percent }}%):</span>
+                    <span class="stat-value money">{{ stat.target_amount|intcomma }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Qoplangan qismi:</span>
+                    <span class="stat-value money val-paid">{{ stat.paid_amount|intcomma }}</span>
+                </div>
+                <div class="stat-row" style="margin-top: 8px; border-top: 2px solid #eee; padding-top: 8px;">
+                    <span class="stat-label">Muddati o'tgan qarz:</span>
+                    <span class="stat-value money val-debt">{{ stat.debt_amount|intcomma }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form method="get" class="filters-wrapper" id="filterForm">
+
+        <select name="year" class="year-select" onchange="this.form.submit()">
+            {% for y in filter_options.years %}
+                <option value="{{ y.id }}" {% if selected_filters.year == y.id|stringformat:"s" %}selected{% endif %}>
+                    {{ y.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('statusDropdown')">
+                STATUS <i class="fas fa-filter"></i>
+            </button>
+            <div id="statusDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'status')"> Jami
+                    </label>
+                    {% for code, name in filter_options.statuses %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="status" value="{{ code }}"
+                            {% if code in selected_filters.status %}checked{% endif %}>
+                        {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('status')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('formDropdown')">
+                TA'LIM SHAKLI <i class="fas fa-filter"></i>
+            </button>
+            <div id="formDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                     <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'form')"> Jami
+                    </label>
+                    {% for code, name in filter_options.forms %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="form" value="{{ code }}"
+                            {% if code in selected_filters.form %}checked{% endif %}>
+                        {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('form')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('courseDropdown')">
+                KURS <i class="fas fa-filter"></i>
+            </button>
+            <div id="courseDropdown" class="dropdown-content">
+                <div class="checkbox-list">
+                    <label class="checkbox-item" style="border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                        <input type="checkbox" onchange="toggleAll(this, 'course')"> Jami
+                    </label>
+                    {% for code, name in filter_options.courses %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="course" value="{{ code }}"
+                            {% if code|stringformat:"i" in selected_filters.course %}checked{% endif %}>
+                        {{ name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearSelection('course')">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-dropdown">
+            <button type="button" class="dropdown-btn" onclick="toggleDropdown('dateDropdown')">
+                VAQT <i class="fas fa-calendar-alt"></i>
+            </button>
+            <div id="dateDropdown" class="dropdown-content">
+                <div class="date-filter-box">
+                    <div class="date-input-group">
+                        <input type="date" name="limit_date" class="date-input" value="{{ selected_filters.limit_date|default:'' }}">
+                    </div>
+                </div>
+                <div class="dropdown-footer">
+                    <button type="button" class="footer-btn btn-clear" onclick="clearDateSelection()">Tozalash</button>
+                    <button type="submit" class="footer-btn btn-apply">Qo'llash</button>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 30px;">№</th>
+                        <th rowspan="2" style="min-width: 150px; text-align: left; padding-left: 5px;">Ta'lim yo'nalishi</th>
+                        <th rowspan="2" style="width: 60px;">Shakl</th>
+                        <th rowspan="2" style="width: 70px;">Kurs</th>
+                        <th rowspan="2" style="width: 40px;">Talaba soni</th>
+                        <th colspan="9">To'lov foizlari (talabalar soni)</th>
+                        <th rowspan="2" class="th-contract">Jami Shartnoma</th>
+                        <th rowspan="2" class="th-paid">To'langan Summa</th>
+                        <th rowspan="2" class="th-debt">Qarzdorlik</th>
+                    </tr>
+                    <tr>
+                        <th style="padding: 2px;">0%</th>
+                        <th style="padding: 2px;">1-24%</th>
+                        <th style="padding: 2px;">25%</th>
+                        <th style="padding: 2px;">26-49%</th>
+                        <th style="padding: 2px;">50%</th>
+                        <th style="padding: 2px;">51-74%</th>
+                        <th style="padding: 2px;">75%</th>
+                        <th style="padding: 2px;">76-99%</th>
+                        <th style="padding: 2px;">100%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report_data %}
+                        {% for row in item.rows %}
+                        <tr class="{% if row.is_total %}row-total{% endif %}">
+                            {% if forloop.first %}
+                                <td rowspan="{{ item.rowspan }}" class="text-center text-bold">{{ item.index }}</td>
+                                <td rowspan="{{ item.rowspan }}" class="text-bold" style="text-align: left !important; padding-left: 5px; white-space: normal; max-width: 150px;">{{ item.spec_name }}</td>
+                            {% endif %}
+                            <td class="text-center">{% if row.is_total %}<b>Jami</b>{% else %}<span class="badge badge-{{ row.form }}">{{ row.form }}</span>{% endif %}</td>
+                            <td class="text-center">{% if row.is_total %}-{% else %}{{ row.course }}{% endif %}</td>
+                            <td class="text-center text-bold">{{ row.vals.count }}</td>
+                            <td class="text-center">{% if row.vals.p0 > 0 %}{{ row.vals.p0 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p1_24 > 0 %}{{ row.vals.p1_24 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p25 > 0 %}{{ row.vals.p25 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p26_49 > 0 %}{{ row.vals.p26_49 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p50 > 0 %}{{ row.vals.p50 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p51_74 > 0 %}{{ row.vals.p51_74 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p75 > 0 %}{{ row.vals.p75 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p76_99 > 0 %}{{ row.vals.p76_99 }}{% endif %}</td>
+                            <td class="text-center">{% if row.vals.p100 > 0 %}{{ row.vals.p100 }}{% endif %}</td>
+                            <td class="text-right money {% if row.is_total %}bg-green{% endif %}">{{ row.vals.contract|intcomma }}</td>
+                            <td class="text-right money {% if row.is_total %}bg-blue{% endif %}">{{ row.vals.paid|intcomma }}</td>
+                            <td class="text-right money {% if row.is_total %}bg-red{% endif %}">{{ row.vals.debt|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% empty %}
+                         <tr><td colspan="15" class="text-center">Ma'lumot yo'q</td></tr>
+                    {% endfor %}
+                </tbody>
+                 <tfoot class="grand-total">
+                    <tr>
+                        <td colspan="4" class="text-right">UMUMIY JAMI:</td>
+                        <td class="text-center">{{ grand_total.count }}</td>
+                        <td class="text-center">{{ grand_total.p0 }}</td>
+                        <td class="text-center">{{ grand_total.p1_24 }}</td>
+                        <td class="text-center">{{ grand_total.p25 }}</td>
+                        <td class="text-center">{{ grand_total.p26_49 }}</td>
+                        <td class="text-center">{{ grand_total.p50 }}</td>
+                        <td class="text-center">{{ grand_total.p51_74 }}</td>
+                        <td class="text-center">{{ grand_total.p75 }}</td>
+                        <td class="text-center">{{ grand_total.p76_99 }}</td>
+                        <td class="text-center">{{ grand_total.p100 }}</td>
+                        <td class="text-right money">{{ grand_total.contract|intcomma }}</td>
+                        <td class="text-right money">{{ grand_total.paid|intcomma }}</td>
+                        <td class="text-right money">{{ grand_total.debt|intcomma }}</td>
+                    </tr>
+
+                    <tr>
+                        <td colspan="4" class="text-right" style="border-top: none;">FOIZ KO'RSATGICHI:</td>
+                        <td class="text-center">100%</td>
+                        <td class="text-center">{{ grand_total_percent.p0 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p1_24 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p25 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p26_49 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p50 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p51_74 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p75 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p76_99 }}</td>
+                        <td class="text-center">{{ grand_total_percent.p100 }}</td>
+                        <td class="text-right">100%</td>
+                        <td class="text-right">{{ grand_total_percent.paid }}</td>
+                        <td class="text-right">{{ grand_total_percent.debt }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="back-link" style="margin-top: 20px;">
+        <a href=".." style="color: #7f8c8d; text-decoration: none;"><i class="fas fa-arrow-left"></i> Orqaga</a>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const moneyCells = document.querySelectorAll('.money');
+        moneyCells.forEach(cell => {
+            let val = cell.innerText.trim();
+            if (val && !isNaN(val.replace(/,/g, '').replace(/\s/g, ''))) {
+                let num = parseFloat(val.replace(/,/g, '').replace(/\s/g, ''));
+                cell.innerText = num.toLocaleString('ru-RU').replace(/,/g, ' ');
+            }
+        });
+    });
+
+    function toggleDropdown(id) {
+        var dropdowns = document.getElementsByClassName("dropdown-content");
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].id !== id) {
+                dropdowns[i].classList.remove('show');
+            }
+        }
+        document.getElementById(id).classList.toggle("show");
+    }
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.dropdown-btn') && !event.target.matches('.dropdown-btn *')) {
+            var dropdowns = document.getElementsByClassName("dropdown-content");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show') && !openDropdown.contains(event.target)) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+    }
+
+    function clearSelection(name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+        });
+        const headerCheckbox = document.querySelector(`input[onchange="toggleAll(this, '${name}')"]`);
+        if(headerCheckbox) headerCheckbox.checked = false;
+    }
+
+    function clearDateSelection() {
+        const input = document.querySelector('input[name="limit_date"]');
+        if(input) input.value = '';
+    }
+
+    function toggleAll(source, name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => {
+            cb.checked = source.checked;
+        });
+    }
+
+    function exportToExcel(e) {
+        e.preventDefault();
+        const searchParams = window.location.search;
+        const exportUrl = 'export/' + searchParams;
+        window.location.href = exportUrl;
+    }
+</script>
+{% endblock %}

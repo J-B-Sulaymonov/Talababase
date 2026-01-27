@@ -1,0 +1,22 @@
+{% load i18n %}
+<h3>{% blocktrans with filter_title=title %} {{ filter_title }} {% endblocktrans %}</h3>
+<ul>
+    <li>
+        <form method="GET" action="">
+            {# Boshqa aktiv filterlarni (masalan, yil yoki guruh) saqlab qolish #}
+            {% for k, v in choices.0.query_parts.items %}
+                <input type="hidden" name="{{ k }}" value="{{ v }}">
+            {% endfor %}
+
+            <input type="text"
+                   value="{{ choices.0.value|default_if_none:'' }}"
+                   name="{{ spec.parameter_name }}"
+                   placeholder="Qidirish..."
+                   style="width: 95%; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+
+            <div style="margin-top: 5px;">
+                <input type="submit" value="Filtrlash" class="button" style="width: 100%;">
+            </div>
+        </form>
+    </li>
+</ul>

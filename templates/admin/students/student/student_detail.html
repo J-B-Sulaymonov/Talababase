@@ -1,0 +1,500 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #2c3e50; /* Asosiy to'q ko'k */
+            --accent-color: #3498db;  /* Yorqin ko'k */
+            --bg-color: #f4f6f9;      /* Orqa fon */
+            --card-bg: #ffffff;       /* Karta foni */
+            --text-main: #2d3436;     /* Asosiy matn */
+            --text-secondary: #636e72; /* Ikkilamchi matn */
+            --border-radius: 12px;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* --- NAVIGATSIYA --- */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            color: var(--accent-color);
+        }
+
+        .back-button i { margin-right: 8px; }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        /* --- KARTOCHKALAR --- */
+        .detail-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 25px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: transform 0.2s;
+        }
+
+        /* Kartochka sarlavhasi */
+        .card-header {
+            padding: 15px 25px;
+            border-bottom: 1px solid #f0f2f5;
+            display: flex;
+            align-items: center;
+            background: #fff;
+        }
+
+        .card-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .card-header-icon {
+            width: 36px;
+            height: 36px;
+            background: #f0f3f6;
+            color: var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        /* --- MA'LUMOTLAR GRIDI --- */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 25px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #95a5a6;
+            font-weight: 600;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .info-value-large {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        /* --- JADVALLAR --- */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .modern-table th {
+            background-color: #f8f9fa;
+            color: #555;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .modern-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f2f5;
+            color: #444;
+            vertical-align: middle;
+        }
+
+        .modern-table tbody tr:last-child td { border-bottom: none; }
+        .modern-table tbody tr:hover { background-color: #f8f9fc; }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: 600; }
+
+        /* --- STATUS BADGES --- */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge-success { background: #e6fcf5; color: #0ca678; }
+        .badge-warning { background: #fff9db; color: #f08c00; }
+        .badge-danger { background: #fff5f5; color: #fa5252; }
+        .badge-info { background: #e7f5ff; color: #1c7ed6; }
+        .badge-gray { background: #f1f3f5; color: #495057; }
+
+        /* Maxsus ranglar */
+        .text-success { color: #0ca678; }
+        .text-danger { color: #fa5252; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <div class="top-nav">
+            <a href="{% url 'admin:students_student_changelist' %}" class="back-button">
+                <i class="fas fa-arrow-left"></i> Ortga qaytish
+            </a>
+            <h1>{{ student.full_name }}</h1>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-user"></i></div>
+                <h2>Asosiy ma'lumotlar</h2>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Talaba ID (Hemis)</span>
+                    <span class="info-value info-value-large">{{ student.student_hemis_id|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">F.I.Sh.</span>
+                    <span class="info-value">{{ student.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Telefon raqam</span>
+                    <span class="info-value">
+                        <i class="fas fa-phone-alt" style="font-size: 12px; color: #aaa;"></i> {{ student.phone_number }}
+                        {% if student.phone_number_2 %}<br>{{ student.phone_number_2 }}{% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Jinsi</span>
+                    <span class="info-value">{{ student.get_gender_display }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Tug'ilgan sana</span>
+                    <span class="info-value">{{ student.date_of_birth|date:"d.m.Y"|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Tug'ilgan joyi</span>
+                    <span class="info-value">{{ student.birth_place|default:"-" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-graduation-cap"></i></div>
+                <h2>O'qishga oid ma'lumotlar</h2>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Status</span>
+                    <div>
+                        {% if student.status == 'active' %}
+                            <span class="badge badge-success">O'qiydi</span>
+                        {% elif student.status == 'academic' %}
+                            <span class="badge badge-warning">Akademik ta'til</span>
+                        {% elif student.status == 'expelled' %}
+                            <span class="badge badge-danger">Chetlashtirilgan</span>
+                        {% elif student.status == 'graduated' %}
+                            <span class="badge badge-info">Bitirgan</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ student.status }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Yo'nalish</span>
+                    <span class="info-value font-bold">{{ student.group.specialty.name|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Guruh</span>
+                    <span class="info-value info-value-large">{{ student.group.name|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Kurs</span>
+                    <span class="info-value">{{ student.get_course_year_display|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Ta'lim shakli</span>
+                    <span class="info-value">{{ student.get_education_form_display }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">To'lov turi</span>
+                    <span class="info-value">{{ student.get_education_type_display }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-id-card"></i></div>
+                <h2>Pasport va Manzil</h2>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Pasport Seriya/Raqam</span>
+                    <span class="info-value font-bold">{{ student.passport_series_number }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">PINFL (JSHSHIR)</span>
+                    <span class="info-value">{{ student.personal_pin }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Kim tomonidan berilgan</span>
+                    <span class="info-value">{{ student.passport_issued_by|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Amal qilish muddati</span>
+                    <span class="info-value">{{ student.passport_issue_date|date:"d.m.Y" }} — {{ student.passport_expiry_date|date:"d.m.Y" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Doimiy manzil</span>
+                    <span class="info-value">
+                        {{ student.region.name }}, {{ student.district.name }}<br>
+                        <span style="font-size: 13px; color: #777;">{{ student.address }}</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-file-contract"></i></div>
+                <h2>Shartnomalar</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>O'quv yili</th>
+                            <th>Shartnoma №</th>
+                            <th>Sana</th>
+                            <th>Grant</th>
+                            <th class="text-right">Summa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contract in contracts %}
+                        <tr>
+                            <td class="font-bold">{{ contract.academic_year.name }}</td>
+                            <td>{{ contract.contract_number }}</td>
+                            <td>{{ contract.contract_date|date:"d.m.Y" }}</td>
+                            <td>
+                                {% if contract.grant_type != 'none' %}
+                                    <span class="badge badge-success">{{ contract.get_grant_type_display }}</span>
+                                {% else %}
+                                    <span style="color: #ccc;">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right font-bold">{{ contract.amount|intcomma }} so'm</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center" style="color: #999;">Shartnomalar mavjud emas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-receipt"></i></div>
+                <h2>To'lovlar</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>Sana</th>
+                            <th>Shartnoma</th>
+                            <th>Izoh</th>
+                            <th class="text-right">Summa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.payment_date|date:"d.m.Y" }}</td>
+                            <td>{{ payment.contract.contract_number }} <span style="font-size: 11px; color:#888;">({{ payment.contract.academic_year.name }})</span></td>
+                            <td style="font-size: 13px; color: #666;">{{ payment.description|default:"-" }}</td>
+                            <td class="text-right font-bold text-success">+ {{ payment.amount|intcomma }} so'm</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center" style="color: #999;">To'lovlar mavjud emas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if debts %}
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon" style="background: #fff5f5; color: #fa5252;"><i class="fas fa-exclamation-circle"></i></div>
+                <h2 style="color: #fa5252;">Fan qarzdorliklari</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>Fan</th>
+                            <th>Yil / Semestr</th>
+                            <th>Tur</th>
+                            <th>Holat</th>
+                            <th class="text-right">Jami qarz</th>
+                            <th class="text-right">To'landi</th>
+                            <th class="text-right">Qoldiq</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for debt in debts %}
+                        <tr>
+                            <td class="font-bold">{{ debt.subject.name }}</td>
+                            <td>{{ debt.academic_year.name }} <span style="color:#aaa;">/</span> {{ debt.semester }}-sem</td>
+                            <td>{{ debt.get_debt_type_display }}</td>
+                            <td>
+                                {% if debt.status == 'yopilmadi' %}
+                                    <span class="badge badge-danger">Yopilmadi</span>
+                                {% else %}
+                                    <span class="badge badge-success">Yopildi</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right font-bold">{{ debt.amount|intcomma }}</td>
+
+                            <td class="text-right" style="color: #0ca678;">
+                                {% if debt.paid_amount > 0 %}
+                                    +{{ debt.paid_amount|intcomma }}
+                                {% else %}
+                                    <span style="color: #ccc;">-</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="text-right font-bold text-danger">
+                                {% if debt.remaining_debt > 0 %}
+                                    {{ debt.remaining_debt|intcomma }} so'm
+                                {% else %}
+                                    <span class="badge badge-success"><i class="fas fa-check"></i> 0</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if orders %}
+        <div class="detail-card">
+            <div class="card-header">
+                <div class="card-header-icon"><i class="fas fa-scroll"></i></div>
+                <h2>Buyruqlar</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Sana</th>
+                            <th>Buyruq turi</th>
+                            <th>Izoh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td class="font-bold">{{ order.order_number }}</td>
+                            <td>{{ order.order_date|date:"d.m.Y" }}</td>
+                            <td>{{ order.order_type.name }}</td>
+                            <td style="font-size: 13px; color: #666;">{{ order.notes|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</body>
+</html>
