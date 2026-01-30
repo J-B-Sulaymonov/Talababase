@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+
 # 1. Asosiy URLlar (Admin dan boshqa)
 urlpatterns = [
     path('_nested_admin/', include('nested_admin.urls')),
@@ -23,5 +24,7 @@ urlpatterns += [
     path('personnel/', include('kadrlar.urls')),
     path('', admin.site.urls),
     # path('personnel/', include('kadrlar.urls')),
+
+
 
 ]

@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from mptt.fields import TreeForeignKey
+from mptt.models import MPTTModel
 
 User = get_user_model()
 
@@ -11,14 +13,14 @@ User = get_user_model()
 
 class Department(models.Model):
     name = models.CharField("Nomi", max_length=200)
-    parent = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='children',
-        verbose_name="Yuqori turuvchi tuzilma"
-    )
+    # parent = models.ForeignKey(
+    #     'self',
+    #     on_delete=models.SET_NULL,
+    #     null=True,
+    #     blank=True,
+    #     related_name='children',
+    #     verbose_name="Yuqori turuvchi tuzilma"
+    # )
     order = models.PositiveIntegerField("Tartib raqami", default=0, blank=True, null=True)
     # Faqat Kafedra mudiri biriktiriladi
     head_manager = models.ForeignKey(
@@ -510,36 +512,69 @@ class ArchivedEmployee(Employee):
         verbose_name_plural = "Arxiv (Bo'shaganlar)"
 
 
-# kadrlar/models.py
-
 class OrganizationStructure(models.Model):
-    TEMPLATE_CHOICES = [
-        ('simple', 'Oddiy'),
-        ('corporate', 'Korporativ (Modern)'),
-        ('hierarchy', 'Ierarxiya (Daraxtsimon)'),
-    ]
-
-    title = models.CharField("Struktura nomi", max_length=255)
-    slug = models.SlugField(unique=True, help_text="URL uchun unikal nom")
-
-    # Dizayn shabloni
-    template_style = models.CharField(
-        "Dizayn Shabloni",
-        max_length=50,
-        choices=TEMPLATE_CHOICES,
-        default='gov'
-    )
-
-    # Asosiy "Sehrli" joy. Barcha tugunlar (nodes) va chiziqlar (links) shu yerda turadi.
-    structure_data = models.JSONField("Struktura JSON ma'lumotlari", default=dict, blank=True)
-
+    title = models.CharField("Tuzilma nomi", max_length=255, default="Asosiy Tashkiliy Tuzilma")
+    xml_data = models.TextField("Diagramma kodi (XML)", blank=True, help_text="Bu yerga tegmang, diagramma avtomatik saqlanadi.")
     is_active = models.BooleanField("Faol", default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Tashkiliy Struktura"
-        verbose_name_plural = "Tashkiliy Strukturalar"
+        verbose_name = "Tashkiliy Tuzilma"
+        verbose_name_plural = "Tashkiliy Tuzilma"
 
     def __str__(self):
         return self.title
+
+
+class SimpleStructure(MPTTModel):
+
+    name = models.CharField("Tugun nomi", max_length=255, help_text="Masalan: Rektor, Buxgalteriya")
+    parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children',
+                            verbose_name="Yuqori tugun")
+
+    # --- YANGI MANTIQ ---
+    # 1. Agar bo'lim tanlansa -> Shu bo'limdagi HAMMA chiqadi.
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True,
+                                   verbose_name="Bo'lim (Butun jamoani chiqarish)")
+
+    # 2. Agar xodim tanlansa -> Faqat SHU ODAM chiqadi.
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True,
+                                 verbose_name="Aniq xodim (Yakka tartibda)")
+
+    order = models.PositiveIntegerField("Ko'rinish tartibi", default=0)
+
+    class MPTTMeta:
+        order_insertion_by = ['order']
+
+    class Meta:
+        verbose_name = "Tuzilma Elementi"
+        verbose_name_plural = "Tashkiliy Tuzilma (Sozlamalar)"
+
+    def __str__(self):
+        return self.name
+
+    def get_employees(self):
+        """
+        Xodimlarni qaytarish mantig'i:
+        1. Agar 'employee' tanlangan bo'lsa -> Faqat o'shani qaytar (Boshqalarni aralashtirma).
+        2. Agar 'department' tanlangan bo'lsa -> Shu bo'limdagi barcha faol xodimlarni qaytar.
+        """
+
+        # 1-HOLAT: Aniq xodim biriktirilgan (Masalan: Rektor)
+        if self.employee:
+            # Biz baribir QuerySet qaytarishimiz kerak (loop ishlashi uchun)
+            return Employee.objects.filter(id=self.employee.id)
+
+        # 2-HOLAT: Bo'lim biriktirilgan (Masalan: Buxgalteriya)
+        if self.department:
+            return Employee.objects.filter(
+                department=self.department,
+                status='active',
+                archived=False
+            ).order_by('order')
+
+        # Hech narsa tanlanmagan bo'lsa
+        return Employee.objects.none()
+
+    def get_employee_count(self):
+        return self.get_employees().count()

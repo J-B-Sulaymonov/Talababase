@@ -1,7 +1,6 @@
-from django.core.serializers.json import DjangoJSONEncoder
-from django.http import JsonResponse
-from .models import OrganizationStructure, Department, Employee
-from django.http import HttpResponse
+from mptt.admin import DraggableMPTTAdmin
+from .models import SimpleStructure
+from django.http import HttpResponse, JsonResponse
 from django.utils.safestring import mark_safe
 import json
 from django.db import models
@@ -15,6 +14,7 @@ from django import forms
 from django.template.response import TemplateResponse
 from django.contrib import admin
 
+
 try:
     from nested_admin import NestedModelAdmin, NestedStackedInline, NestedTabularInline
 except ImportError:
@@ -26,7 +26,7 @@ except ImportError:
 from .models import (
     Department, Employee, Document, Order,
     Teacher, TeacherAvailability, Weekday, TimeSlot, Quiz, QuizQuestion, QuizAnswer, QuizResultKey, QuizPermission,
-    QuizResult, QuizScoringRule, QuizScoringInfo, ArchivedEmployee, Position
+    QuizResult, QuizScoringRule, QuizScoringInfo, ArchivedEmployee, Position, OrganizationStructure
 )
 
 User = get_user_model()
@@ -1453,32 +1453,93 @@ def get_new_context(request):
 
 @admin.register(OrganizationStructure)
 class OrganizationStructureAdmin(admin.ModelAdmin):
-    change_form_template = 'admin/kadrlar/structure_builder.html'
-    list_display = ('title', 'template_style', 'is_active')
+    # Biz yaratgan maxsus shablonni ulaymiz
+    change_form_template = "admin/kadrlar/org_structure_change_form.html"
 
-    def get_builder_context(self):
-        # Department modelidan xodimlarni 'employees' related_name orqali olishni tekshiring
-        departments = Department.objects.all().order_by('order').prefetch_related('employees')
-        # Tekshirish uchun print (Django konsolida ko'rinadi)
-        for d in departments:
-            print(f"Bo'lim: {d.name}, Xodimlar soni: {d.employees.count()}")
+    list_display = ('title', 'is_active', 'updated_at')
 
-        return {
-            'db_departments_list': departments,
-        }
+    # Kadrlar admini va superuser ko'ra oladi
+    def has_module_permission(self, request):
+        return is_hr_admin(request.user)
 
-    def add_view(self, request, form_url='', extra_context=None):
-        if request.method == 'POST' and request.headers.get('Content-Type') == 'application/json':
-            return self.save_structure_api(request, object_id=None)
+    def has_add_permission(self, request):
+        return is_hr_admin(request.user)
 
-        extra_context = extra_context or {}
-        extra_context.update(self.get_builder_context())
-        return super().add_view(request, form_url, extra_context=extra_context)
+    def has_change_permission(self, request, obj=None):
+        return is_hr_admin(request.user)
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        if request.method == 'POST' and request.headers.get('Content-Type') == 'application/json':
-            return self.save_structure_api(request, object_id=object_id)
+    def has_delete_permission(self, request, obj=None):
+        return is_hr_admin(request.user)
 
-        extra_context = extra_context or {}
-        extra_context.update(self.get_builder_context())
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+@admin.register(SimpleStructure)
+class SimpleStructureAdmin(DraggableMPTTAdmin):
+    list_display = ('tree_actions', 'indented_title', 'mapping_info', 'employee_count_display')
+    list_display_links = ('indented_title',)
+
+    # Qidiruvni tezlashtirish uchun
+    autocomplete_fields = ['department', 'employee']
+
+    fieldsets = (
+        ('Tugun Ma\'lumotlari', {
+            'fields': ('name', 'parent', 'order')
+        }),
+        ('Kimni biriktiramiz? (Faqat bittasini tanlang)', {
+            'fields': ('employee', 'department'),
+            'description': """
+            <b>Qoida:</b><br>
+            1. Agar <b>Xodim</b> tanlasangiz (masalan, Rektor) - faqat shu odam chiqadi.<br>
+            2. Agar <b>Bo'lim</b> tanlasangiz (masalan, Buxgalteriya) - shu bo'limdagi barcha xodimlar chiqadi.
+            """
+        }),
+    )
+
+    def mapping_info(self, instance):
+        if instance.employee:
+            return f"👤 {instance.employee.last_name} {instance.employee.first_name}"
+        if instance.department:
+            return f"🏢 {instance.department.name} (Jamoa)"
+        return "❌ Biriktirilmagan"
+
+    mapping_info.short_description = "Biriktirilgan"
+
+    def employee_count_display(self, instance):
+        return f"{instance.get_employee_count()} nafar"
+
+    employee_count_display.short_description = "Soni"
+
+    # --- Custom Views (O'zgarishsiz qoladi) ---
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('visual-chart/', self.admin_site.admin_view(self.visual_chart_view), name='simplestructure_visual'),
+            path('api-node-details/<int:node_id>/', self.admin_site.admin_view(self.node_details_api),
+                 name='simplestructure_api'),
+        ]
+        return my_urls + urls
+
+    def visual_chart_view(self, request):
+        context = dict(
+            self.admin_site.each_context(request),
+            nodes=SimpleStructure.objects.all(),
+            title="Tashkiliy Tuzilma (Vizual)"
+        )
+        return render(request, 'admin/kadrlar/simplestructure/chart_view.html', context)
+
+    def node_details_api(self, request, node_id):
+        node = get_object_or_404(SimpleStructure, id=node_id)
+        employees = node.get_employees()
+
+        data = []
+        for emp in employees:
+            # Xodimning o'z lavozimlarini olamiz
+            pos_list = ", ".join([p.name for p in emp.positions.all()])
+            photo = emp.photo.url if emp.photo else "/static/img/default-user.png"
+
+            data.append({
+                'full_name': f"{emp.last_name} {emp.first_name}",
+                'position': pos_list,  # Lavozim Employee modelidan kelyapti
+                'photo': photo,
+                'degree': emp.get_scientific_degree_display(),
+            })
+        return JsonResponse({'node_name': node.name, 'employees': data})

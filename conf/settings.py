@@ -11,6 +11,7 @@ INSTALLED_APPS = [
     'more_admin_filters',
     'rangefilter',
     'import_export',
+    'mptt',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
