@@ -49,6 +49,38 @@ def is_edu_admin(user):
 # =========================================================
 # 2. DASHBOARD VIEW (STATISTIKA)
 # =========================================================
+def kadrlar_structure_view(request):
+    """
+    YANGI: Faqat Struktura modellarini ko'rsatuvchi ichki dashboard.
+    """
+    user = request.user
+    # Ruxsatni tekshirish (Faqat HR yoki Superuser)
+    if not is_hr_admin(user):
+        return render(request, 'admin/login.html') # Yoki 403 error
+
+    models_links = []
+
+    models_links.append({
+        "title": "Xodimlar Strukturasi",
+        "subtitle": "Tugunlar, bo'limlar va xodimlarni bog'lash",
+        "url": reverse('admin:kadrlar_simplestructure_changelist'),
+        "icon": "fas fa-sitemap",
+    })
+    models_links.append({
+        "title": "Qo'lda structura yasash",
+        "subtitle": "Interaktiv tuzilma yaratish va tahrirlash",
+        "url": reverse('admin:kadrlar_organizationstructure_changelist'),
+        "icon": "fas fa-project-diagram",
+    })
+
+    context = {
+        'title': "Tashkiliy Tuzilma Sozlamalari",
+        'models_links': models_links,
+        'stats': {}, # Bu yerda statistika shart emas
+        **admin.site.each_context(request),
+    }
+    # Xuddi general.html shablonidan foydalanaveramiz, chunki tuzilishi bir xil
+    return render(request, 'admin/kadrlar/general.html', context)
 
 def kadrlar_general_view(request):
     user = request.user
@@ -95,12 +127,10 @@ def kadrlar_general_view(request):
             "icon": "fas fa-sitemap",  # Estetik ikonka
         })
         models_links.append({
-            "title": "Tashkiliy Struktura (Builder)",
-            "subtitle": "Interaktiv tuzilma yaratish va tahrirlash",
-            "url": reverse('admin:kadrlar_organizationstructure_changelist'),
-            "icon": "fas fa-project-diagram",  # Ikonka
-            # Ajralib turishi uchun maxsus stil:
-            "style": "background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); color: white; border:none;"
+            "title": "Struktura",
+            "subtitle": "Diagramma va Tuzilma sozlamalari",
+            "url": reverse('admin:kadrlar_structure_subview'),  # Pastda URL nomini belgilaymiz
+            "icon": "fas fa-network-wired",
         })
         # ---------------------------------------
         # --- YANGI: LAVOZIMLAR ---
@@ -160,6 +190,7 @@ def kadrlar_general_view(request):
             "icon": "fas fa-chart-pie",
         })
 
+
     context = {
         'title': "Kadrlar Bo'limi Boshqaruv Paneli",
         'models_links': models_links,
@@ -174,6 +205,8 @@ original_get_urls = admin.site.get_urls
 
 def get_urls():
     custom_urls = [path('kadrlar/general/', admin.site.admin_view(kadrlar_general_view), name='kadrlar_general'),
+                   path('kadrlar/structure-settings/', admin.site.admin_view(kadrlar_structure_view),
+                        name='kadrlar_structure_subview'),
                    ]
     return custom_urls + original_get_urls()
 
@@ -1474,41 +1507,82 @@ class OrganizationStructureAdmin(admin.ModelAdmin):
 
 @admin.register(SimpleStructure)
 class SimpleStructureAdmin(DraggableMPTTAdmin):
-    list_display = ('tree_actions', 'indented_title', 'mapping_info', 'employee_count_display')
+    # 1. Ro'yxatda nimalar ko'rinsin?
+    list_display = (
+        'tree_actions',
+        'indented_title',
+        'layout_display',
+        'node_type_display',
+        'mapping_info',
+        'employee_count_display',
+        'order'
+    )
     list_display_links = ('indented_title',)
 
-    # Qidiruvni tezlashtirish uchun
+    # 2. Qidiruv va Autocomplete (Katta bazalar uchun qulay)
+    search_fields = ('name',)
     autocomplete_fields = ['department', 'employee']
 
+    # 3. Forma ko'rinishi (Guruhlarga bo'lingan)
     fieldsets = (
         ('Tugun Ma\'lumotlari', {
             'fields': ('name', 'parent', 'order')
         }),
+        ('Dizayn va Joylashuv (Muhim)', {
+            'fields': ('children_layout', 'node_type'),
+        }),
         ('Kimni biriktiramiz? (Faqat bittasini tanlang)', {
             'fields': ('employee', 'department'),
-            'description': """
-            <b>Qoida:</b><br>
-            1. Agar <b>Xodim</b> tanlasangiz (masalan, Rektor) - faqat shu odam chiqadi.<br>
-            2. Agar <b>Bo'lim</b> tanlasangiz (masalan, Buxgalteriya) - shu bo'limdagi barcha xodimlar chiqadi.
-            """
         }),
     )
 
+    # --- LIST DISPLAY METODLARI (Ro'yxatni chiroyli qilish uchun) ---
+
+    def layout_display(self, obj):
+        """Bolalar qanday joylashishini rangli qilib ko'rsatish"""
+        if obj.children_layout == 'vertical':
+            return format_html('<span style="color:#d97706; font-weight:bold;">⬇ Vertikal (Ustma-ust)</span>')
+        return format_html('<span style="color:#059669;">➡ Gorizontal</span>')
+
+    layout_display.short_description = "Joylashuv"
+
+    def node_type_display(self, obj):
+        """Tugun turini rangli bejiklar bilan ko'rsatish"""
+        if obj.node_type == 'staff_left':
+            return format_html(
+                '<span style="background-color:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:bold; border:1px solid #fecaca;">⬅ Chap (Shtat)</span>'
+            )
+        elif obj.node_type == 'staff_right':
+            return format_html(
+                '<span style="background-color:#e0f2fe; color:#075985; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:bold; border:1px solid #bae6fd;">➡ O\'ng (Shtat)</span>'
+            )
+        return format_html('<span style="color:#64748b;">Oddiy</span>')
+
+
+    node_type_display.short_description = "Turi (Pozitsiya)"
+
     def mapping_info(self, instance):
+        """Kim biriktirilganini ko'rsatish"""
         if instance.employee:
-            return f"👤 {instance.employee.last_name} {instance.employee.first_name}"
+            return format_html(
+                f'<span style="color:#333;">👤 {instance.employee.last_name} {instance.employee.first_name}</span>')
         if instance.department:
-            return f"🏢 {instance.department.name} (Jamoa)"
-        return "❌ Biriktirilmagan"
+            return format_html(f'<span style="color:#333; font-weight:bold;">🏢 {instance.department.name}</span>')
+        return format_html('<span style="color:#999;">❌ Biriktirilmagan</span>')
 
     mapping_info.short_description = "Biriktirilgan"
 
     def employee_count_display(self, instance):
-        return f"{instance.get_employee_count()} nafar"
+        count = instance.get_employee_count()
+        if count > 0:
+            return format_html(
+                f'<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:10px; font-weight:bold;">{count} nafar</span>')
+        return "-"
 
-    employee_count_display.short_description = "Soni"
+    employee_count_display.short_description = "Xodimlar"
 
-    # --- Custom Views (O'zgarishsiz qoladi) ---
+    # --- URLS va VIEWS (Diagrammani chizish va API uchun) ---
+
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -1519,6 +1593,7 @@ class SimpleStructureAdmin(DraggableMPTTAdmin):
         return my_urls + urls
 
     def visual_chart_view(self, request):
+        # Vizual ko'rinish sahifasi
         context = dict(
             self.admin_site.each_context(request),
             nodes=SimpleStructure.objects.all(),
@@ -1527,6 +1602,7 @@ class SimpleStructureAdmin(DraggableMPTTAdmin):
         return render(request, 'admin/kadrlar/simplestructure/chart_view.html', context)
 
     def node_details_api(self, request, node_id):
+        # Modal oynasi uchun JSON qaytaruvchi API
         node = get_object_or_404(SimpleStructure, id=node_id)
         employees = node.get_employees()
 
@@ -1534,12 +1610,22 @@ class SimpleStructureAdmin(DraggableMPTTAdmin):
         for emp in employees:
             # Xodimning o'z lavozimlarini olamiz
             pos_list = ", ".join([p.name for p in emp.positions.all()])
-            photo = emp.photo.url if emp.photo else "/static/img/default-user.png"
+
+            # Rasmni tekshirish
+            if emp.photo:
+                photo_url = emp.photo.url
+            else:
+                photo_url = "/static/img/default-user.png"
 
             data.append({
+                'id': emp.id,  # <--- BU ID BO'LISHI SHART
                 'full_name': f"{emp.last_name} {emp.first_name}",
-                'position': pos_list,  # Lavozim Employee modelidan kelyapti
-                'photo': photo,
+                'position': pos_list,
+                'photo': photo_url,
                 'degree': emp.get_scientific_degree_display(),
             })
-        return JsonResponse({'node_name': node.name, 'employees': data})
+
+        return JsonResponse({
+            'node_name': node.name,
+            'employees': data
+        })

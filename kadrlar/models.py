@@ -527,19 +527,66 @@ class OrganizationStructure(models.Model):
 
 
 class SimpleStructure(MPTTModel):
+    # 1. BOLALAR JOYLASHUVI (Children Layout)
+    # Bu tugunning tagidagi elementlar qanday ko'rinishini hal qiladi.
+    LAYOUT_CHOICES = [
+        ('horizontal', 'Gorizontal (Yonma-yon)'),  # Bosh direktor, Rektor, Prorektorlar uchun
+        ('vertical', 'Vertikal (Ustma-ust)'),  # Bo'limlar ro'yxati uchun
+    ]
+
+    # 2. TUGUN TURI (Node Type / Position)
+    # Bu tugunning o'zi qayerda joylashishini hal qiladi.
+    NODE_TYPE_CHOICES = [
+        ('normal', 'Markazdan'),  # Standart (o'rtada)
+        ('staff_left', 'Chapdan joylashtirish'),  # Chapga chiqib turadi
+        ('staff_right', 'O\'ngdan joylashtirish'),  # O'ngga chiqib turadi
+    ]
 
     name = models.CharField("Tugun nomi", max_length=255, help_text="Masalan: Rektor, Buxgalteriya")
-    parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children',
-                            verbose_name="Yuqori tugun")
 
-    # --- YANGI MANTIQ ---
-    # 1. Agar bo'lim tanlansa -> Shu bo'limdagi HAMMA chiqadi.
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True,
-                                   verbose_name="Bo'lim (Butun jamoani chiqarish)")
+    parent = TreeForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='children',
+        verbose_name="Yuqori tugun"
+    )
 
-    # 2. Agar xodim tanlansa -> Faqat SHU ODAM chiqadi.
-    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True,
-                                 verbose_name="Aniq xodim (Yakka tartibda)")
+    # --- YANGI MAYDONLAR ---
+    children_layout = models.CharField(
+        "Joylashuv",
+        max_length=20,
+        choices=LAYOUT_CHOICES,
+        default='horizontal',
+        help_text="Ushbu tugunning ichidagi bo'limlar qanday ko'rinsin? (Masalan: Prorektorlar qatori uchun 'Gorizontal', Bo'limlar ro'yxati uchun 'Vertikal')"
+    )
+
+    node_type = models.CharField(
+        "Tugun turi",
+        max_length=20,
+        choices=NODE_TYPE_CHOICES,
+        default='normal',
+        help_text="Agar bu bo'lim asosiy shoxdan chetda (chap yoki o'ngda) tursa, mosini tanlang."
+    )
+    # -----------------------
+
+    # Biriktirish
+    department = models.ForeignKey(
+        'Department',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Bo'lim (Butun jamoani chiqarish)"
+    )
+
+    employee = models.ForeignKey(
+        'Employee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Aniq xodim (Yakka tartibda)"
+    )
 
     order = models.PositiveIntegerField("Ko'rinish tartibi", default=0)
 
@@ -555,14 +602,15 @@ class SimpleStructure(MPTTModel):
 
     def get_employees(self):
         """
-        Xodimlarni qaytarish mantig'i:
-        1. Agar 'employee' tanlangan bo'lsa -> Faqat o'shani qaytar (Boshqalarni aralashtirma).
-        2. Agar 'department' tanlangan bo'lsa -> Shu bo'limdagi barcha faol xodimlarni qaytar.
+        Tugunga tegishli xodimlarni qaytaradi.
+        Agar 'employee' tanlangan bo'lsa, faqat o'sha shaxs.
+        Agar 'department' tanlangan bo'lsa, shu bo'limdagi barcha aktiv xodimlar.
         """
+        # Circular importni oldini olish uchun funksiya ichida import qilamiz
+        from .models import Employee
 
         # 1-HOLAT: Aniq xodim biriktirilgan (Masalan: Rektor)
         if self.employee:
-            # Biz baribir QuerySet qaytarishimiz kerak (loop ishlashi uchun)
             return Employee.objects.filter(id=self.employee.id)
 
         # 2-HOLAT: Bo'lim biriktirilgan (Masalan: Buxgalteriya)

@@ -132,6 +132,8 @@ JAZZMIN_SETTINGS = {
         "kadrlar.ArchivedEmployee",
         "kadrlar.Department",
         "kadrlar.Position",
+        "kadrlar.OrganizationStructure",
+        "kadrlar.SimpleStructure",
     ],
     "custom_links": {
         "students": [
