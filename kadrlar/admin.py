@@ -1102,12 +1102,12 @@ class TeacherAdmin(admin.ModelAdmin):
                     'schedule_status_col')
 
     list_filter = ('schedule_approved', 'work_type_permanent', 'work_type_hourly',
-                   'employee__department', 'can_teach_lecture')
+                   'employee__department')
 
     autocomplete_fields = ['employee']
     filter_horizontal = ('subjects',)
     inlines = [TeacherAvailabilityInline]
-
+    search_fields = ['employee__first_name', 'employee__last_name']
     # 2. FORMA KO'RINISHI
     fieldsets = (
         ("Xodim", {'fields': ('employee',)}),
@@ -1120,7 +1120,7 @@ class TeacherAdmin(admin.ModelAdmin):
             'description': "O'qituvchi bir vaqtning o'zida ham doimiy, ham soatbay ishlashi mumkin."
         }),
         ("Yuklama",
-         {'fields': ('subjects', 'can_teach_lecture', 'can_teach_practice', 'can_teach_lab', 'can_teach_seminar')}),
+         {'fields': ('subjects',)}),
         ("Tasdiqlash", {'fields': ('schedule_approved',), 'classes': ('collapse',)}),
     )
 
@@ -1175,8 +1175,7 @@ class TeacherAdmin(admin.ModelAdmin):
             if obj.schedule_approved and not edu_admin:
                 readonly.extend([
                     'subjects',
-                    'can_teach_lecture', 'can_teach_practice',
-                    'can_teach_lab', 'can_teach_seminar'
+
                 ])
         return readonly
 
@@ -1209,11 +1208,11 @@ class TeacherAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        # HR o'chira olmaydi
         if is_hr_admin(request.user):
-            return False
+            return True
         if obj and obj.schedule_approved and not is_edu_admin(request.user):
             return False
+
         return True
 
     # 7. DIZAYN METODLARI

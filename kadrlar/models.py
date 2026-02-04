@@ -249,10 +249,10 @@ class Teacher(models.Model):
         blank=True
     )
 
-    can_teach_lecture = models.BooleanField("Ma'ruza o'ta oladimi?", default=False)
-    can_teach_practice = models.BooleanField("Amaliyot o'ta oladimi?", default=False)
-    can_teach_lab = models.BooleanField("Laboratoriya o'ta oladimi?", default=False)
-    can_teach_seminar = models.BooleanField("Seminar o'ta oladimi?", default=False)
+    # can_teach_lecture = models.BooleanField("Ma'ruza o'ta oladimi?", default=False)
+    # can_teach_practice = models.BooleanField("Amaliyot o'ta oladimi?", default=False)
+    # can_teach_lab = models.BooleanField("Laboratoriya o'ta oladimi?", default=False)
+    # can_teach_seminar = models.BooleanField("Seminar o'ta oladimi?", default=False)
 
     # O'QUV BO'LIMI TASDIQLASH QISMI
     schedule_approved = models.BooleanField(

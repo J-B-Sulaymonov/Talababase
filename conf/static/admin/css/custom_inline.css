@@ -1,0 +1,136 @@
+/* ==========================================================================
+   1. JADVAL STRUKTURASI VA SARLAVHALAR
+   ========================================================================== */
+
+/* Jazzmin/Django'dagi ortiqcha bo'sh ustunlarni yashirish */
+.inline-group .tabular thead th:first-child,
+.inline-group .tabular td.original,
+.inline-group .tabular thead th.original {
+    display: none !important;
+    width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* Sarlavhalar dizayni (Header) */
+.inline-group .tabular thead th {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    color: #495057;
+    background-color: #e9ecef;
+    padding: 10px 4px !important;
+    text-align: center !important;
+    border: 1px solid #dee2e6;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    line-height: 1.2;
+}
+
+/* Katakchalar (Cells) */
+.inline-group .tabular td {
+    padding: 4px !important;
+    border: 1px solid #dee2e6;
+    vertical-align: middle !important;
+    background-color: #fff;
+    text-align: center;
+}
+
+/* ==========================================================================
+   2. ELEMENTLAR (INPUT, SELECT, SELECT2)
+   ========================================================================== */
+
+/* Barcha input va selectlar uchun umumiy stil */
+.inline-group .tabular input,
+.inline-group .tabular select,
+.inline-group .tabular .select2-container .select2-selection--single {
+    height: 34px !important;
+    font-size: 13px !important;
+    padding: 0 6px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    width: 100%;
+    box-sizing: border-box;
+    color: #495057 !important;
+}
+
+/* Oddiy inputlar markazda tursin */
+.inline-group .tabular input {
+    text-align: center;
+}
+
+/* Select2 (Fan qidiruvi) ichki matni */
+.inline-group .tabular .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 32px !important;
+    font-size: 13px !important;
+    color: #495057 !important;
+    text-align: left;
+    padding-left: 5px !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 32px !important;
+}
+
+/* ==========================================================================
+   3. USTUN KENGLIKLARI (SIZNING MODELINGIZGA MOSLAB)
+   ========================================================================== */
+
+/* Katta ustun: Fan (Subject) */
+.inline-group .tabular .field-subject,
+.inline-group .tabular .column-subject {
+    width: 250px !important;
+    min-width: 200px;
+}
+
+/* O'rta ustunlar: Fan turi, Semestr */
+.inline-group .tabular .field-subject_type,
+.inline-group .tabular .field-semester {
+    width: 130px !important;
+}
+
+/* Kichik raqamli ustunlar: Soatlar va Kredit */
+.inline-group .tabular .field-credit,
+.inline-group .tabular .field-semester_time,
+.inline-group .tabular .field-total_hours,
+.inline-group .tabular .field-lecture_hours,
+.inline-group .tabular .field-practice_hours,
+.inline-group .tabular .field-lab_hours,
+.inline-group .tabular .field-seminar_hours {
+    width: 70px !important;
+}
+
+/* O'chirish (Delete) checkbox ustuni */
+.inline-group .tabular td.delete {
+    width: 50px !important;
+    text-align: center !important;
+}
+
+/* ==========================================================================
+   4. SAHIFA KENGLIGI VA TUGMALAR (LAYOUT)
+   ========================================================================== */
+
+/* Asosiy oynani to'liq kenglikda (Full width) qilish */
+.change-form .col-12.col-lg-9 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding-right: 0 !important;
+}
+
+/* O'ng tarafdagi panelni pastga tushirish (Footer sifatida) */
+.change-form .col-12.col-lg-3 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fc;
+    border-top: 1px solid #e3e6f0;
+}
+
+/* Tugmalarni o'ng tomonga joylash */
+.change-form .col-12.col-lg-3 .card-body {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 0 !important;
+}

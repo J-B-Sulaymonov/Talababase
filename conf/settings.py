@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'students',
     'kadrlar',
+    'education',
 ]
 
 MIDDLEWARE = [

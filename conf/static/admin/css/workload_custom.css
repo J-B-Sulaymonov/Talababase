@@ -1,0 +1,103 @@
+/* ================================================= */
+/* WORKLOAD ADMIN CUSTOM CSS                */
+/* ================================================= */
+
+/* DIQQAT: Inputlar va Labellarni "cho'zadigan" (width: 100%)
+   barcha eski kodlar olib tashlandi. Endi ular standart (asil)
+   holatda ko'rinadi. */
+
+
+/* ------------------------------------------------ */
+/* Jazzmin tugmalarini pastga va 100% kenglikka o'tkazish */
+/* (Bu qism tugmalarni chiroyli joylashtirish uchun qoladi) */
+/* ------------------------------------------------ */
+
+/* 1. Asosiy forma qismi (Chap tomon) */
+/* Inputlar turgan joyni to'liq ekranga yoyish */
+.change-form .col-12.col-lg-9 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding-right: 0 !important;
+}
+
+/* 2. Tugmalar bloki (O'ng tomon -> Pastga tushdi) */
+.change-form .col-12.col-lg-3 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    margin-top: 20px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* 3. Tugmalar konteyneri (Flexbox ustma-ust) */
+.change-form .col-lg-3 .card-body {
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column; /* Tugmalarni ustma-ust chiqarish */
+    gap: 10px; /* Tugmalar orasidagi masofa */
+}
+
+/* 4. Tugmalarning o'zi (100% width) */
+.change-form .col-lg-3 .btn {
+    width: 100% !important; /* To'liq kenglik */
+    display: block;
+    margin-bottom: 0 !important;
+    padding: 10px;
+    font-size: 15px;
+    border-radius: 4px;
+}
+
+/* 5. "O'chirish" (Delete) tugmasi */
+.change-form .col-lg-3 .btn-danger {
+    margin-top: 10px; /* Sal ajratib turish uchun */
+}
+
+/* 6. Card (orqa fon va ramkalarni olib tashlash) */
+.change-form .col-lg-3 .card {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* ================================================= */
+/* MATN RANGINI TO'G'IRLASH (FIX TEXT COLOR)         */
+/* ================================================= */
+
+/* 1. Tanlangan elementlar (Tags/Chips) */
+/* Rasmda ko'ringan kulrang qutichalar ichidagi yozuv */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    color: #333333 !important;       /* To'q kulrang/Qora yozuv */
+    background-color: #e2e6ea !important; /* Och kulrang fon */
+    border: 1px solid #ced4da !important;
+}
+
+/* 2. "X" tugmasi (O'chirish belgisi) rangi */
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #dc3545 !important;       /* Qizil rang */
+    margin-right: 5px !important;
+}
+
+/* 3. Dropdown (Qidiruv ro'yxati) ichidagi yozuvlar */
+.select2-results__option {
+    color: #333333 !important;
+    background-color: #ffffff !important;
+}
+
+/* 4. Tanlangan hover holatidagi rang */
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #007bff !important; /* Ko'k fon */
+    color: #ffffff !important;            /* Oq yozuv */
+}
+
+/* 5. Oddiy input va selectlar uchun umumiy qoida */
+/* Agar oddiy selectlarda ham muammo bo'lsa */
+.change-form select,
+.change-form input[type="text"],
+.change-form input[type="number"] {
+    color: #333333 !important;
+}
+
+/* 6. Select2 yopiq turgan holatidagi asosiy matn */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #333333 !important;
+}
