@@ -53,33 +53,23 @@
         font-size: 11px;
     }
     .report-table th, .report-table td {
-        border: 1px solid #000; /* Qora chegara */
+        border: 1px solid #000;
         padding: 4px 2px;
         text-align: center;
         vertical-align: middle;
         line-height: 1.2;
     }
 
-    /* Sarlavha ranglari va stillari (Rasmdagidek) */
     .report-table thead th {
         font-weight: bold;
     }
 
-    /* Semestr sarlavhalari */
-    .th-kuzgi { background-color: #d99694; } /* Qizg'ish */
-    .th-bahorgi { background-color: #dce6f1; } /* Ko'kish */
-    .th-general { background-color: #fff; }
-
-    /* Sariq "Jami" ustunlar */
+    /* Ranglar */
+    .th-kuzgi { background-color: #d99694; }
+    .th-bahorgi { background-color: #dce6f1; }
     .bg-yellow { background-color: #ffff00; font-weight: bold; }
-
-    /* Pushti "Semestr Jami" ustunlar */
     .bg-pink { background-color: #e6b8b7; font-weight: bold; }
-
-    /* Yillik jami */
     .bg-purple-gray { background-color: #ccc1d9; font-weight: bold; }
-
-    /* Moviy "Semestr Jami" sarlavhasi foni */
     .bg-blue-light { background-color: #b8cce4; }
 
     /* Vertikal matn */
@@ -91,18 +81,15 @@
         height: 100px;
     }
 
-    /* Maxsus ustunlar */
-    .col-subject { text-align: left; padding-left: 5px; font-weight: bold; min-width: 200px; }
+    .col-subject { text-align: left; padding-left: 5px; font-weight: bold; min-width: 180px; }
     .col-teacher { text-align: left; padding-left: 5px; min-width: 150px; font-weight: bold; }
 
-    /* Raqamlash qatori */
     .row-numbers td {
         background-color: #f2f2f2;
         color: #555;
         font-size: 9px;
     }
 
-    /* Print tugmasi */
     .print-btn {
         float: right;
         background: #28a745;
@@ -115,7 +102,6 @@
         margin-bottom: 10px;
     }
 
-    /* Chop etish rejimi */
     @media print {
         .print-btn, .filter-section, .breadcrumbs, #header, .nav-sidebar {
             display: none !important;
@@ -126,7 +112,6 @@
             size: landscape;
             margin: 5mm;
         }
-        /* Ranglarni printerda chiqarish uchun majburiy */
         .bg-yellow { background-color: #ffff00 !important; -webkit-print-color-adjust: exact; }
         .bg-pink { background-color: #e6b8b7 !important; -webkit-print-color-adjust: exact; }
         .bg-purple-gray { background-color: #ccc1d9 !important; -webkit-print-color-adjust: exact; }
@@ -170,9 +155,9 @@
                 <th rowspan="3" class="vertical-text">Talabalar<br>soni</th>
                 <th rowspan="3" class="vertical-text">Guruhlar<br>soni</th>
 
-                <th colspan="7" class="th-kuzgi">KUZGI SEMESTR</th>
+                <th colspan="9" class="th-kuzgi">KUZGI SEMESTR</th>
 
-                <th colspan="7" class="th-bahorgi">BAHORGI SEMESTR</th>
+                <th colspan="9" class="th-bahorgi">BAHORGI SEMESTR</th>
 
                 <th rowspan="3" class="bg-purple-gray" style="width: 50px;">JAMI<br>YILLIK<br>YUKLAMA</th>
                 <th rowspan="3">Professor - o'qituvchi F.I.Sh</th>
@@ -181,33 +166,29 @@
             <tr>
                 <th colspan="2">Ma'ruza</th>
                 <th colspan="2">Amaliy mashg'ulot</th>
-                <th colspan="2">Seminar mashg'uloti</th>
+                <th colspan="2">Laboratoriya</th> <th colspan="2">Seminar mashg'uloti</th>
                 <th rowspan="2" class="bg-pink">Jami</th>
 
                 <th colspan="2">Ma'ruza</th>
                 <th colspan="2">Amaliy mashg'ulot</th>
-                <th colspan="2">Seminar mashg'uloti</th>
+                <th colspan="2">Laboratoriya</th> <th colspan="2">Seminar mashg'uloti</th>
                 <th rowspan="2" class="bg-blue-light">Jami</th>
             </tr>
 
             <tr>
                 <th>reja</th> <th class="bg-yellow">jami</th>
                 <th>reja</th> <th class="bg-yellow">jami</th>
-                <th>reja</th> <th class="bg-yellow">jami</th>
+                <th>reja</th> <th class="bg-yellow">jami</th> <th>reja</th> <th class="bg-yellow">jami</th>
 
                 <th>reja</th> <th class="bg-yellow">jami</th>
                 <th>reja</th> <th class="bg-yellow">jami</th>
-                <th>reja</th> <th class="bg-yellow">jami</th>
+                <th>reja</th> <th class="bg-yellow">jami</th> <th>reja</th> <th class="bg-yellow">jami</th>
             </tr>
 
             <tr class="row-numbers">
                 <td>1</td> <td>2</td> <td>3</td> <td>4</td> <td>5</td> <td>6</td> <td>7</td>
 
-                <td>8</td> <td>9</td> <td>10</td> <td>11</td> <td>12</td> <td>13</td> <td>14</td>
-
-                <td>15</td> <td>16</td> <td>17</td> <td>18</td> <td>19</td> <td>20</td> <td>21</td>
-
-                <td>22</td> <td>23</td>
+                <td>8</td> <td>9</td>    <td>10</td> <td>11</td>  <td>12</td> <td>13</td>  <td>14</td> <td>15</td>  <td>16</td>              <td>17</td> <td>18</td>  <td>19</td> <td>20</td>  <td>21</td> <td>22</td>  <td>23</td> <td>24</td>  <td>25</td>              <td>26</td> <td>27</td>
             </tr>
         </thead>
         <tbody>
@@ -227,6 +208,9 @@
                 <td>{{ row.kuzgi.prac_r|default_if_none:"" }}</td>
                 <td class="bg-yellow">{{ row.kuzgi.prac_j|default_if_none:"" }}</td>
 
+                <td>{{ row.kuzgi.lab_r|default_if_none:"" }}</td>
+                <td class="bg-yellow">{{ row.kuzgi.lab_j|default_if_none:"" }}</td>
+
                 <td>{{ row.kuzgi.sem_r|default_if_none:"" }}</td>
                 <td class="bg-yellow">{{ row.kuzgi.sem_j|default_if_none:"" }}</td>
 
@@ -239,6 +223,9 @@
                 <td>{{ row.bahorgi.prac_r|default_if_none:"" }}</td>
                 <td class="bg-yellow">{{ row.bahorgi.prac_j|default_if_none:"" }}</td>
 
+                 <td>{{ row.bahorgi.lab_r|default_if_none:"" }}</td>
+                 <td class="bg-yellow">{{ row.bahorgi.lab_j|default_if_none:"" }}</td>
+
                 <td>{{ row.bahorgi.sem_r|default_if_none:"" }}</td>
                 <td class="bg-yellow">{{ row.bahorgi.sem_j|default_if_none:"" }}</td>
 
@@ -250,7 +237,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="23" style="padding: 20px; color: #777; font-style: italic;">
+                <td colspan="27" style="padding: 20px; color: #777; font-style: italic;">
                     Tanlangan filtr bo'yicha ma'lumotlar topilmadi.
                 </td>
             </tr>

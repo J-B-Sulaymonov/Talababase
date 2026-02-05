@@ -224,6 +224,10 @@ class Stream(models.Model):
         ('seminar', "Seminar"),
         ('lab', "Laboratoriya"),
     ]
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('permanent', "Asosiy (Shtat)"),
+        ('hourly', "Soatbay"),
+    ]
 
     # Asosiy bog'lovchi - WORKLOAD
     workload = models.ForeignKey(
@@ -236,6 +240,12 @@ class Stream(models.Model):
     name = models.CharField(max_length=255, verbose_name="Nomi", help_text="Masalan: Ma'ruza-1 (Iqtisodiyot)")
 
     teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="O'qituvchi")
+    employment_type = models.CharField(
+        max_length=20,
+        choices=EMPLOYMENT_TYPE_CHOICES,
+        verbose_name="Yuklama turi",
+        help_text="Ushbu dars o'qituvchining qaysi yuklamasiga yozilishini tanlang."
+    )
     lesson_type = models.CharField(max_length=20, choices=LESSON_TYPES, verbose_name="Dars turi")
 
     # Guruhlar (Faqat Workladdagilar tanlanadi)
@@ -254,13 +264,19 @@ class Stream(models.Model):
         return f"{self.workload.subject.name} - {self.name} ({self.get_lesson_type_display()})"
 
     def clean(self):
-        """
-        Validatsiya:
-        1. Agar oqim saqlanayotgan bo'lsa, tanlangan guruhlar Workload ichida borligini tekshirish kerak.
-        (Admin panelda filtrlash vizual, bu yerda esa backend himoyasi)
-        """
         super().clean()
-        # M2M validatsiyasi odatda save() dan keyin ishlaydi yoki signal orqali,
-        # lekin bu yerda mantiqiy tekshiruv qoldiramiz.
-        pass
+
+        # Agar o'qituvchi tanlangan bo'lsa, uning ishlash turini tekshiramiz
+        if self.teacher:
+            # 1-holat: Asosiy (Shtat) tanlangan, lekin o'qituvchi Asosiy emas
+            if self.employment_type == 'permanent' and not self.teacher.work_type_permanent:
+                raise ValidationError({
+                    'employment_type': f"O'qituvchi {self.teacher} 'Asosiy (Shtat)'da ishlamaydi. Iltimos, 'Soatbay'ni tanlang yoki o'qituvchi profilini o'zgartiring."
+                })
+
+            # 2-holat: Soatbay tanlangan, lekin o'qituvchi Soatbay emas
+            if self.employment_type == 'hourly' and not self.teacher.work_type_hourly:
+                raise ValidationError({
+                    'employment_type': f"O'qituvchi {self.teacher} 'Soatbay' ishlamaydi. Iltimos, 'Asosiy (Shtat)'ni tanlang yoki o'qituvchi profilini o'zgartiring."
+                })
 

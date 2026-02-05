@@ -508,7 +508,7 @@ class StreamInline(admin.TabularInline):
     model = Stream
     extra = 0
     show_change_link = True
-    fields = ('name', 'lesson_type', 'teacher', 'groups', 'sub_groups')
+    fields = ('name', 'lesson_type', 'teacher', 'employment_type', 'groups', 'sub_groups')
     autocomplete_fields = ['teacher']
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
@@ -667,52 +667,35 @@ class WorkloadAdmin(admin.ModelAdmin):
 
     def general_report_view(self, request):
         # ------------------------------------------------------------
-        # 1. FILTRLASH PARAMETRLARINI ANIQLASH
+        # 1. FILTRLASH VA AKTIV YIL
         # ------------------------------------------------------------
-
-        # A) Bazadan "is_active=True" bo'lgan yilni qidiramiz
         active_year_obj = AcademicYear.objects.filter(is_active=True).first()
-
-        # B) Agar aktiv yil topilmasa, eng oxirgi (nomi bo'yicha katta) yilni olamiz
         if not active_year_obj:
             active_year_obj = AcademicYear.objects.order_by('-name').first()
 
-        # C) Requestdan yilni olamiz (GET parametri).
-        # Agar requestda yo'q bo'lsa, active_year_obj ID sini default qilib olamiz.
         selected_year_id = request.GET.get('academic_year')
-
         if selected_year_id is None and active_year_obj:
             selected_year_id = active_year_obj.id
 
-        # Qolgan filtr parametrlarini olish
         selected_edu_form = request.GET.get('education_form', 'kunduzgi')
         selected_course = request.GET.get('course', '')
 
-        # D) Formani initsializatsiya qilish
-        # Muhim: Querysetni shu yerda order_by('-name') qilib beramiz
         filter_form = WorkloadReportFilterForm(initial={
             'academic_year': selected_year_id,
             'education_form': selected_edu_form,
             'course': selected_course
         })
-        # Formaning querysetini dinamik yangilash (kamayish tartibida: 2026, 2025...)
         filter_form.fields['academic_year'].queryset = AcademicYear.objects.all().order_by('-name')
 
         # ------------------------------------------------------------
-        # 2. MA'LUMOTLARNI OLISH (QUERYSET)
+        # 2. QUERYSET
         # ------------------------------------------------------------
         workloads = Workload.objects.all().select_related('subject').prefetch_related(
-            'groups',
-            'groups__specialty',
-            'plan_subjects',
-            'plan_subjects__education_plan',
-            'streams',
-            'streams__groups',
-            'streams__sub_groups',
-            'streams__teacher'
+            'groups', 'groups__specialty',
+            'plan_subjects', 'plan_subjects__education_plan',
+            'streams', 'streams__groups', 'streams__sub_groups', 'streams__teacher'
         )
 
-        # Filtrlarni qo'llash
         if selected_year_id:
             workloads = workloads.filter(plan_subjects__education_plan__academic_year_id=selected_year_id)
         if selected_edu_form:
@@ -721,134 +704,127 @@ class WorkloadAdmin(admin.ModelAdmin):
             workloads = workloads.filter(plan_subjects__education_plan__course=selected_course)
 
         workloads = workloads.distinct()
+        report_data = []
 
         # ------------------------------------------------------------
         # 3. HISOBLASH LOGIKASI
         # ------------------------------------------------------------
-        report_data = []
-
         for load in workloads:
-            # A. REJANI ANIQLASH (Representative Plan Logic)
-            # Bir fanga bir nechta yo'nalish ulangan bo'lishi mumkin, lekin soatlari bir xil.
-            # Shuning uchun har bir semestr uchun bittadan "vakil" reja olamiz.
-            representative_plans = {}  # key: semester, value: plan_subject
-
+            # A. Rejani aniqlash (Vakil reja)
+            representative_plans = {}
             for ps in load.plan_subjects.all():
                 if ps.semester not in representative_plans:
                     representative_plans[ps.semester] = ps
 
-            # Agar reja topilmasa (masalan, filter xato ishlagan bo'lsa), o'tkazib yuboramiz
             if not representative_plans:
                 continue
 
-            # Kurs raqamini aniqlash (birinchi topilgan rejadan)
             first_plan = list(representative_plans.values())[0]
             course_num = first_plan.education_plan.course
 
-            # B. PATOKLARNI O'QITUVCHILAR BO'YICHA GURUHLASH
-            # { teacher_obj: [stream1, stream2], None: [stream_vakant] }
-            streams_by_teacher = {}
+            # B. PATOKLARNI GURUHLASH (O'qituvchi + Yuklama turi bo'yicha)
+            # Key: (teacher_obj, employment_type_str)
+            # Misol: (TeacherA, 'permanent'), (TeacherA, 'hourly'), (None, None)
+            streams_map = {}
             all_streams = load.streams.all()
 
-            # Agar umuman patok yaratilmagan bo'lsa -> Vakant
             if not all_streams.exists():
-                streams_by_teacher[None] = []
+                # Vakant (Patok yo'q)
+                streams_map[(None, None)] = []
             else:
                 for stream in all_streams:
                     t = stream.teacher
-                    if t not in streams_by_teacher:
-                        streams_by_teacher[t] = []
-                    streams_by_teacher[t].append(stream)
+                    # Agar o'qituvchi bo'lsa turini olamiz, bo'lmasa None
+                    e_type = stream.employment_type if t else None
 
-            # C. HAR BIR O'QITUVCHI UCHUN ALOHIDA QATOR (ROW) YARATISH
-            for teacher, streams in streams_by_teacher.items():
+                    key = (t, e_type)
 
-                # 1. O'qituvchi ismi
-                teacher_name = str(teacher) if teacher else "Vakant"
+                    if key not in streams_map:
+                        streams_map[key] = []
+                    streams_map[key].append(stream)
 
-                # 2. Shu qatorga tegishli guruhlarni yig'ish (Display uchun)
+            # C. HAR BIR GURUH UCHUN ALOHIDA QATOR
+            for (teacher, emp_type), streams in streams_map.items():
+
+                # O'qituvchi ismini shakllantirish
+                if teacher:
+                    # Ism + (Shtat/Soatbay)
+                    type_display = dict(Stream.EMPLOYMENT_TYPE_CHOICES).get(emp_type, emp_type)
+                    if emp_type == 'permanent':
+                        short_type = "Shtat"
+                    elif emp_type == 'hourly':
+                        short_type = "Soatbay"
+                    else:
+                        short_type = type_display
+
+                    teacher_name = f"{teacher} ({short_type})"
+                else:
+                    teacher_name = "Vakant"
+
+                # Guruhlar ro'yxati
                 row_groups_set = set()
                 if streams:
                     for s in streams:
-                        # Asosiy guruhlar
-                        for g in s.groups.all():
-                            row_groups_set.add(g)
-                        # Kichik guruhlar (ularning asosiy guruhini olamiz)
-                        for sg in s.sub_groups.all():
-                            row_groups_set.add(sg.group)
+                        for g in s.groups.all(): row_groups_set.add(g)
+                        for sg in s.sub_groups.all(): row_groups_set.add(sg.group)
                 else:
-                    # Agar patok bo'lmasa (Vakant), Workload dagi barcha guruhlarni chiqaramiz
-                    for g in load.groups.all():
-                        row_groups_set.add(g)
+                    # Agar VAKANT (patok yo'q) bo'lsa, Workload dagi guruhlarni olamiz
+                    for g in load.groups.all(): row_groups_set.add(g)
 
-                # Guruh nomlarini chiroyli chiqarish
                 sorted_groups = sorted(list(row_groups_set), key=lambda x: x.name)
                 group_names = ", ".join([g.name for g in sorted_groups])
-
-                # Yo'nalishlar (Specialties)
                 specialties = ", ".join(list(set([g.specialty.name for g in row_groups_set if g.specialty])))
-
-                # Talabalar soni
                 total_students = sum([getattr(g, 'student_count', 0) for g in row_groups_set])
                 group_count_val = len(row_groups_set)
 
-                # 3. MULTIPLIKATOR LOGIKASI (Patoklar sonini sanash)
-                # Faqat shu o'qituvchiga tegishli patoklar sanaladi
+                # --- PATOKLAR SONI ---
                 lec_count = len([s for s in streams if s.lesson_type == 'lecture'])
                 prac_count = len([s for s in streams if s.lesson_type == 'practice'])
+                lab_count = len([s for s in streams if s.lesson_type == 'lab'])
                 sem_count = len([s for s in streams if s.lesson_type == 'seminar'])
-                # lab_count = len([s for s in streams if s.lesson_type == 'lab']) # Agar kerak bo'lsa
 
-                # Maxsus holat: VAKANT (Patok umuman yo'q)
+                # Vakant bo'lsa (Streamsiz) 1 deb olamiz
                 is_vacant_row = (teacher is None) and (not streams)
                 if is_vacant_row:
-                    # Agar patok yo'q bo'lsa, rejadagi soatni 1 marta hisoblab ko'rsatamiz
                     lec_count = 1
                     prac_count = 1
+                    lab_count = 1
                     sem_count = 1
 
-                # 4. SEMESTRLAR BO'YICHA SOATLARNI HISOBLASH
-                kuzgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
-                bahorgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
+                # Semestrlar bo'yicha lug'at
+                kuzgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
+                         'lab_r': '', 'lab_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
+                bahorgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
+                           'lab_r': '', 'lab_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
 
-                # Topilgan vakil rejalarni aylanamiz
                 for sem, ps in representative_plans.items():
-                    is_autumn = (sem % 2 != 0)  # Toq semestr (1,3,5,7) = Kuzgi
+                    is_autumn = (sem % 2 != 0)
                     target = kuzgi if is_autumn else bahorgi
 
-                    # Helper funksiya: Soatni hisoblash
+                    # Hisoblash funksiyasi (Oldingi Amaliyotchi/Ma'ruza fixi bilan)
                     def set_hours(plan_hour, stream_count, field_name):
-                        if plan_hour and plan_hour > 0:
-                            # Reja (o'zgarmas, bitta potok uchun)
+                        # Reja bor bo'lsa VA (Patok bor bo'lsa YOKI Vakant bo'lsa)
+                        if (plan_hour and plan_hour > 0) and (stream_count > 0 or is_vacant_row):
                             target[f'{field_name}_r'] = plan_hour
 
-                            # Jami hisoblash
                             if is_vacant_row:
-                                # Vakant bo'lsa: Reja = Jami
                                 total_calc = plan_hour
                             else:
-                                # O'qituvchi bor bo'lsa: Reja * Patoklar soni
-                                # Agar patok soni 0 bo'lsa (masalan u faqat amaliyot o'tadi), Jami 0 chiqadi.
                                 total_calc = plan_hour * stream_count
 
                             target[f'{field_name}_j'] = total_calc
                             return total_calc
                         return 0
 
-                    # Ma'ruza
                     t_lec = set_hours(ps.lecture_hours, lec_count, 'lec')
-                    # Amaliyot
                     t_prac = set_hours(ps.practice_hours, prac_count, 'prac')
-                    # Seminar
+                    t_lab = set_hours(ps.lab_hours, lab_count, 'lab')
                     t_sem = set_hours(ps.seminar_hours, sem_count, 'sem')
 
-                    # Semestr Jami
-                    target['total'] += (t_lec + t_prac + t_sem)
+                    target['total'] += (t_lec + t_prac + t_lab + t_sem)
 
-                # Yillik jami
                 year_total = kuzgi['total'] + bahorgi['total']
 
-                # 5. MA'LUMOTNI QO'SHISH
                 report_data.append({
                     'subject': load.subject.name,
                     'specialties': specialties,
@@ -859,13 +835,10 @@ class WorkloadAdmin(admin.ModelAdmin):
                     'kuzgi': kuzgi,
                     'bahorgi': bahorgi,
                     'year_total': year_total,
-                    'teacher': teacher_name
+                    'teacher': teacher_name  # Bu yerda endi "(Shtat)" yoki "(Soatbay)" qo'shilgan
                 })
 
-        # ------------------------------------------------------------
-        # 4. SORTIROVKA VA RENDER
-        # ------------------------------------------------------------
-        # Fanni nomi, keyin O'qituvchi ismi bo'yicha saralash
+        # 4. Sortirovka
         report_data.sort(key=lambda x: (x['subject'], x['teacher']))
 
         context = {

@@ -1,3 +1,5 @@
+from django.utils import timezone
+from datetime import timedelta
 from mptt.admin import DraggableMPTTAdmin
 from .models import SimpleStructure
 from django.http import HttpResponse, JsonResponse
@@ -1468,19 +1470,62 @@ original_each_context = admin.site.each_context
 
 def get_new_context(request):
     """
-    Har bir admin sahifasiga qo'shimcha ma'lumot yuborish.
-    Bu yerda userning 'Kadrlar' guruhida bor-yo'qligini tekshiramiz.
+    Tug'ilgan kunlarni faqat 'Kadrlar' guruhi a'zolariga ko'rsatish.
+    Superuserga ko'rsatilmaydi.
     """
-    context = original_each_context(request)  # Asosiy context`11`
+    context = original_each_context(request)
+    user = request.user
 
-    # User 'Kadrlar' guruhidami? (True/False)
-    # Superuser bo'lsa ham, agar guruhda bo'lmasa False qaytadi.
-    if request.user.is_authenticated:
-        context['is_kadr_member'] = request.user.groups.filter(name='Kadrlar').exists()
+    # 1. RUXSATNI ANIQLASH
+    is_kadr_notification_viewer = False
+
+    if user.is_authenticated:
+        # O'ZGARISH SHU YERDA:
+        # Biz user.is_superuser ni TEKSHIRMAYMIZ.
+        # Faqatgina "Kadrlar" guruhida bor bo'lsa True bo'ladi.
+        if user.groups.filter(name='Kadrlar').exists():
+            is_kadr_notification_viewer = True
+
+    # Context o'zgaruvchisini yangilaymiz
+    context['is_kadr_member'] = is_kadr_notification_viewer
+
+    # 2. TUG'ILGAN KUNLAR LOGIKASI (Faqat ruxsati borlarga hisoblanadi)
+    if is_kadr_notification_viewer:
+        today = timezone.now().date()
+        tomorrow = today + timedelta(days=1)
+
+        # Faol xodimlarni olamiz
+        active_employees = Employee.objects.filter(status='active', archived=False).exclude(birth_date__isnull=True)
+
+        birthdays_today = []
+        birthdays_tomorrow = []
+
+        for emp in active_employees:
+            try:
+                bday_this_year = emp.birth_date.replace(year=today.year)
+            except ValueError:
+                # 29-fevral muammosi
+                bday_this_year = emp.birth_date.replace(year=today.year, day=28) + timedelta(days=1)
+
+            if bday_this_year == today:
+                birthdays_today.append(emp)
+            elif bday_this_year == tomorrow:
+                birthdays_tomorrow.append(emp)
+
+        context['notify_birthdays_count'] = len(birthdays_today) + len(birthdays_tomorrow)
+        context['notify_birthdays_today'] = birthdays_today
+        context['notify_birthdays_tomorrow'] = birthdays_tomorrow
     else:
-        context['is_kadr_member'] = False
+        # Superuser va boshqalar uchun bo'sh
+        context['notify_birthdays_count'] = 0
+        context['notify_birthdays_today'] = []
+        context['notify_birthdays_tomorrow'] = []
 
     return context
+
+
+# Funksiyani qayta ulaymiz
+admin.site.each_context = get_new_context
 
 
 @admin.register(OrganizationStructure)
