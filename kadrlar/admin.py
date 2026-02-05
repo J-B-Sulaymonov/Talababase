@@ -10,7 +10,7 @@ from django.utils.html import format_html
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import path, reverse
 from django.utils.http import urlencode
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django import forms
 from django.template.response import TemplateResponse

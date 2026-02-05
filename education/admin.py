@@ -445,8 +445,8 @@ class EducationPlanAdmin(admin.ModelAdmin):
             totals['seminar'] += item.seminar_hours
             totals['lab'] += item.lab_hours
             totals['independent'] += ind_hours
-
-        context = {
+        context = self.admin_site.each_context(request)
+        context.update({
             'title': f"O'quv reja: {plan}",
             'site_header': self.admin_site.site_header,
             'has_permission': True,
@@ -454,12 +454,10 @@ class EducationPlanAdmin(admin.ModelAdmin):
             'plan': plan,
             'subjects': processed_subjects,
             'totals': totals,
-
-            # --- BU O'ZGARUVCHILAR TEMPLATE UCHUN ZARUR ---
             'semester_range': semester_range,
             'max_sem': max_sem,
             'edu_type': edu_type_display,
-        }
+        })
         return render(request, 'admin/education/education_plan/print.html', context)
 
 
@@ -841,11 +839,14 @@ class WorkloadAdmin(admin.ModelAdmin):
         # 4. Sortirovka
         report_data.sort(key=lambda x: (x['subject'], x['teacher']))
 
-        context = {
+        context = self.admin_site.each_context(request)
+
+        # 2. O'zimizning hisobot ma'lumotlarini unga qo'shamiz
+        context.update({
             'report_data': report_data,
             'filter_form': filter_form,
             'title': "Professor-o'qituvchilarning o'quv yuklamasi hajmlari"
-        }
+        })
         return render(request, 'admin/workload_report.html', context)
 
     # --- AJAX METHODS (O'zgarishsiz) ---
