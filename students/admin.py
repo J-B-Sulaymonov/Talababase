@@ -32,9 +32,7 @@ from .models import (
 )
 from django.urls import path, reverse
 from django.shortcuts import render
-from django.contrib import admin, messages
-
-# admin.py (Tepaga qo'shing)
+from django.contrib import admin
 
 from django import forms
 
@@ -1238,243 +1236,208 @@ class StudentAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def export_excel_view(self, request):
-        # 1. Filterlangan ma'lumotlarni olish
-        cl = self.get_changelist_instance(request)
-        queryset = cl.get_queryset(request)
+        """
+        Talabalar ro'yxatini Excelga export qilish.
+        Default holatda eski ustunlar chiqadi.
+        Contract raqami va sanasi faqat tanlansa chiqadi.
+        """
+        # 1. Filtrlangan ma'lumotlarni olish
+        try:
+            cl = self.get_changelist_instance(request)
+            queryset = cl.get_queryset(request)
+        except AttributeError:
+            queryset = self.filter_queryset(self.get_queryset(request))
 
-        # 2. Formadan kelgan ma'lumotlarni olish
+        # 2. Formadan tanlangan ustunlarni olish
         selected_fields = request.POST.getlist('selected_fields')
-        include_statistics = request.POST.get('include_statistics')
 
-        # --- MUHIM O'ZGARISH: YANGI LOGIKA ---
-        # Agar umuman hech narsa tanlanmagan bo'lsa (default):
+        # --- O'ZGARISH SHU YERDA: DEFAULT RO'YXAT ---
+        # Agar hech narsa tanlanmagan bo'lsa, standart ustunlar chiqadi
+        # LEKIN contract_number va contract_date BU YERDA YO'Q
         if not selected_fields:
             selected_fields = [
-                'full_name', 'student_hemis_id', 'group',
-                'education_form', 'contract_amount', 'total_paid_amount',
-                'qabul_order_number', 'qabul_order_date'  # <--- Defaultga qo'shildi
+                'full_name',
+                'student_hemis_id',
+                'group',
+                'education_form',
+                'total_paid_amount',
+                'payment_diff',
+                'qabul_order_number',
+                'qabul_order_date'
             ]
-        else:
-            # Agar foydalanuvchi boshqa ustunlarni tanlagan bo'lsa ham,
-            # biz bu ikkisini ro'yxatga MAJBURAN qo'shamiz (HTMLni o'zgartirmaslik uchun)
-            if 'qabul_order_number' not in selected_fields:
-                selected_fields.append('qabul_order_number')
-            if 'qabul_order_date' not in selected_fields:
-                selected_fields.append('qabul_order_date')
+        # ---------------------------------------------
 
-        # 3. Excel faylni tayyorlash
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        filename = f"Talabalar_Export_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.xlsx"
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
+        # 3. Excel fayl yaratish
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Talabalar"
+        ws.title = "Talabalar Export"
 
-        # --- DIZAYN ELEMENTLARI ---
-        header_font = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
-        header_fill = PatternFill(start_color='2C3E50', end_color='2C3E50', fill_type='solid')
+        # Dizayn
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
         center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        left_align = Alignment(horizontal='left', vertical='center', wrap_text=False)
-        right_align = Alignment(horizontal='right', vertical='center', wrap_text=False)
-        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                             bottom=Side(style='thin'))
+        left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
         money_format = '#,##0'
 
-        # 4. HEADERLARNI YASASH
+        # 4. Header nomlari
         field_titles = {
-            'student_hemis_id': 'ID',
+            'student_hemis_id': 'ID (Hemis)',
             'full_name': 'F.I.SH.',
             'group': 'Guruh',
             'course_year': 'Kurs',
             'education_form': "Ta'lim shakli",
-            'education_type': "To'lov turi",
-            'status': 'Status',
-            'current_contract_amount': 'Kontrakt',
-            'total_paid_amount': "To'lov",
+            'education_type': "Ta'lim turi",
+            'payment_type': "To'lov turi",
+
+            # --- YANGI MAYDONLAR ---
+            'contract_number': 'Shartnoma raqami',
+            'contract_date': 'Shartnoma sanasi',
+            # -----------------------
+
+            'current_contract_amount': 'Hisoblangan kontrakt',
+            'total_paid_amount': "To'langan summa",
+            'payment_diff': 'Qarzdorlik',
             'payment_percent': 'Foiz (%)',
-            'payment_diff': 'Qarzi',
-            'subject_debt_total': 'Fan Qarzi (Jami)',
-            'subject_debt_paid': "Fan Qarzi (To'langan)",
-            'subject_debt_diff': 'Fan Qarzi (Qoldiq)',
+
+            'passport_serial': 'Pasport Seriya',
+            'passport_number': 'Pasport Raqami',
+            'pinfl': 'JSHSHIR',
+            'gender': 'Jinsi',
+            'birth_date': "Tug'ilgan sana",
             'region': 'Viloyat',
             'district': 'Tuman',
-            'citizenship': 'Fuqarolik',
-            'passport_series_number': 'Pasport',
-            'personal_pin': 'JSHSHIR',
-            'phone_number': 'Telefon',
-            'date_of_birth': "Tug'ilgan sana",
-            'gender': 'Jinsi',
-            'nationality': 'Millati',
-            'current_semester': 'Semestr',
-            'entry_score': 'Kirish bali',
-            'document': 'Hujjat holati',
-            'document_info': 'Hujjat haqida',
             'address': 'Manzil',
-            'passport_issued_by': 'Pasport berilgan',
-            'previous_institution': "Ta'lim olgan muassasasi",
-            'document_type': "Hujjat turi",
-            'document_number': "Hujjat raqami",
-            'previous_graduation_year': "Tamomlagan yili",
-            'certificate_info': "Sertifikat",
+            'phone_number': 'Telefon',
+
+            'previous_institution': 'Oldingi muassasa',
+            'document_type': 'Hujjat turi',
+            'document_number': 'Hujjat raqami',
             'transferred_from_university': "Ko'chirgan OTM",
 
-            # --- YANGI HEADERLAR ---
             'qabul_order_number': 'Qabul buyruq №',
             'qabul_order_date': 'Qabul buyruq sanasi',
         }
 
         # Headerlarni chizish
         for col_num, field in enumerate(selected_fields, 1):
+            column_letter = get_column_letter(col_num)
             cell = ws.cell(row=1, column=col_num)
-            if field in field_titles:
-                cell.value = field_titles[field]
-            else:
-                try:
-                    cell.value = Student._meta.get_field(field).verbose_name
-                except:
-                    cell.value = field
+            cell.value = field_titles.get(field, field)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = center_align
             cell.border = thin_border
 
-        ws.row_dimensions[1].height = 25
+            if field == 'full_name':
+                ws.column_dimensions[column_letter].width = 35
+            elif field in ['contract_number', 'contract_date']:
+                ws.column_dimensions[column_letter].width = 20
+            else:
+                ws.column_dimensions[column_letter].width = 15
 
-        # 5. MA'LUMOTLARNI YOZISH
-        money_fields = ['current_contract_amount', 'total_paid_amount', 'payment_diff', 'subject_debt_total',
-                        'subject_debt_paid', 'subject_debt_diff']
+        # 5. Ma'lumotlarni yozish
+        money_fields = ['current_contract_amount', 'total_paid_amount', 'payment_diff',
+                        'subject_debt_total', 'subject_debt_paid', 'subject_debt_diff']
 
         row_num = 2
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+
         for obj in queryset:
-            # Har bir talaba uchun 'Qabul' (id=1) buyrug'ini olamiz
-            # Optimallashtirish uchun oldindan olish
+
+            # --- SHARTNOMANI OLISH LOGIKASI ---
+            active_contract = None
+            need_contract = ('contract_number' in selected_fields or 'contract_date' in selected_fields)
+
+            if need_contract and active_year:
+                active_contract = obj.contract_set.filter(
+                    academic_year=active_year,
+                    contract_type='contract'
+                ).first()
+
+            # Qabul buyrug'ini olish (eski logikangiz bo'yicha)
             qabul_order = None
             if 'qabul_order_number' in selected_fields or 'qabul_order_date' in selected_fields:
-                qabul_order = obj.orders.filter(order_type_id=1).order_by('-order_date').first()
+                qabul_order = obj.order_set.filter(
+                    order_type__name__icontains='qabul',
+                    is_deleted=False
+                ).order_by('-order_date').first()
+            # ----------------------------------
 
             for col_num, field in enumerate(selected_fields, 1):
                 cell = ws.cell(row=row_num, column=col_num)
                 val = None
 
-                # A) QABUL BUYRUG'I LOGIKASI
-                if field == 'qabul_order_number':
-                    cell.value = qabul_order.order_number if qabul_order else ""
+                # --- 1. Shartnoma ma'lumotlari ---
+                if field == 'contract_number':
+                    val = active_contract.contract_number if active_contract else ""
                     cell.alignment = center_align
-                    cell.border = thin_border
-                    continue
+
+                elif field == 'contract_date':
+                    if active_contract and active_contract.contract_date:
+                        val = active_contract.contract_date.strftime('%d.%m.%Y')
+                    else:
+                        val = ""
+                    cell.alignment = center_align
+
+                # --- 2. Qabul buyrug'i ---
+                elif field == 'qabul_order_number':
+                    val = qabul_order.order_number if qabul_order else ""
+                    cell.alignment = center_align
 
                 elif field == 'qabul_order_date':
                     if qabul_order and qabul_order.order_date:
-                        cell.value = qabul_order.order_date.strftime('%d.%m.%Y')
+                        val = qabul_order.order_date.strftime('%d.%m.%Y')
                     else:
-                        cell.value = ""
-                    cell.alignment = center_align
-                    cell.border = thin_border
-                    continue
-
-                # B) PULLIK MAYDONLAR
-                if field in money_fields:
-                    val = getattr(obj, field, 0)
-                    if val is None: val = 0
-                    cell.value = float(val)
-                    cell.number_format = money_format
+                        val = ""
                     cell.alignment = center_align
 
-                # C) FOIZ
-                elif field == 'payment_percent':
-                    val = getattr(obj, field, 0)
-                    if val is None: val = 0
-                    cell.value = int(val)
-                    cell.alignment = center_align
+                # --- 3. Obyektning o'z maydonlari ---
+                elif hasattr(obj, field):
+                    val = getattr(obj, field)
+                    if isinstance(val, (datetime, date)):
+                        val = val.strftime('%d.%m.%Y')
+                    elif callable(val):
+                        val = val()
 
-                # D) ALOQA MAYDONLARI
+                # --- 4. Bog'langan maydonlar ---
                 elif field == 'group':
-                    cell.value = obj.group.name if obj.group else ""
-                    cell.alignment = center_align
+                    val = str(obj.group.name) if obj.group else ""
+                elif field == 'course_year':
+                    val = str(obj.course_year) if obj.course_year else ""
                 elif field == 'region':
-                    cell.value = obj.region.name if obj.region else ""
+                    val = obj.region.name if obj.region else ""
                 elif field == 'district':
-                    cell.value = obj.district.name if obj.district else ""
-                elif field == 'citizenship':
-                    cell.value = obj.citizenship.name if obj.citizenship else ""
+                    val = obj.district.name if obj.district else ""
 
-                # E) ODDIY MAYDONLAR
+                # --- Qiymatni yozish ---
+                if val is None:
+                    val = ""
+
+                if field in money_fields:
+                    try:
+                        cell.value = float(val) if val else 0
+                        cell.number_format = money_format
+                    except (ValueError, TypeError):
+                        cell.value = val
                 else:
-                    val = getattr(obj, field, None)
-                    if callable(val): val = val()
-
-                    if val is None:
-                        cell.value = ""
-                    elif isinstance(val, bool):
-                        cell.value = "Ha" if val else "Yo'q"
-                        cell.alignment = center_align
-                    elif isinstance(val, (datetime, date)):
-                        cell.value = val.strftime('%d.%m.%Y')
-                        cell.alignment = center_align
-                    elif field == 'education_form':
-                        cell.value = obj.get_education_form_display()
-                        cell.alignment = center_align
-                    elif field == 'status':
-                        cell.value = obj.get_status_display()
-                        cell.alignment = center_align
-                    elif field == 'education_type':
-                        cell.value = obj.get_education_type_display()
-                        cell.alignment = center_align
-                    elif field == 'document':
-                        # "bor/yoq" o'rniga "Bor/Yo'q" so'zini chiqarish uchun
-                        cell.value = obj.get_document_display()
-                        cell.alignment = center_align
-                    elif field == 'document_type':
-                        cell.value = obj.get_document_type_display()
-                        cell.alignment = center_align
-                    else:
-                        cell.value = str(val)
-                        cell.alignment = left_align
+                    cell.value = str(val)
 
                 cell.border = thin_border
 
+                if field not in ['full_name', 'address'] and field not in money_fields:
+                    cell.alignment = center_align
+                elif field == 'full_name':
+                    cell.alignment = left_align
+
             row_num += 1
 
-        # 6. STATISTIKA (Footer)
-        if include_statistics:
-            start_row = row_num + 2
-            stats = queryset.aggregate(total_contract=Sum('current_contract_amount'),
-                                       total_paid=Sum('total_paid_amount'))
-            jami_kontrakt = stats['total_contract'] or 0
-            jami_tolov = stats['total_paid'] or 0
-            jami_qarz = jami_kontrakt - jami_tolov
-
-            title_cell = ws.cell(row=start_row, column=2, value="YAKUNIY STATISTIKA")
-            title_cell.font = Font(bold=True, size=12, color='FFFFFF')
-            title_cell.fill = header_fill
-            title_cell.alignment = center_align
-            ws.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=3)
-
-            def write_stat(r, label, val):
-                ws.cell(row=r, column=2, value=label).font = Font(bold=True)
-                c = ws.cell(row=r, column=3, value=val)
-                c.font = Font(bold=True);
-                c.number_format = money_format
-
-            write_stat(start_row + 1, "Talabalar soni:", queryset.count())
-            write_stat(start_row + 2, "Jami shartnoma:", float(jami_kontrakt))
-            write_stat(start_row + 3, "Jami to'langan:", float(jami_tolov))
-            write_stat(start_row + 4, "Jami qarzdorlik:", float(jami_qarz))
-
-        # 7. Auto-width
-        for col in ws.columns:
-            max_len = 0
-            col_letter = col[0].column_letter
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len: max_len = len(str(cell.value))
-                except:
-                    pass
-            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
-
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        response['Content-Disposition'] = f'attachment; filename=Students_Export_{timestamp}.xlsx'
         wb.save(response)
         return response
 
