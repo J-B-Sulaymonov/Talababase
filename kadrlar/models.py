@@ -101,8 +101,8 @@ class Employee(models.Model):
     ]
     DEGREE_CHOICES = [
         ('none', "Yo'q"),
-        ('phd', "PhD (Falsafa doktori)"),
-        ('dsc', "DSc (Fan doktori)"),
+        ('phd', "PhD"),
+        ('dsc', "DSc"),
     ]
 
     TITLE_CHOICES = [

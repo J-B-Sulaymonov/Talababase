@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'students',
     'kadrlar',
     'education',
+    'finance',
 ]
 
 MIDDLEWARE = [

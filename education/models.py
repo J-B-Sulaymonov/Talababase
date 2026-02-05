@@ -13,6 +13,12 @@ class EducationPlan(models.Model):
         (4, '4-kurs'),
         (5, '5-kurs'),
     )
+    FORM_CHOICES = [
+        ('kunduzgi', 'Kunduzgi'),
+        ('sirtqi', 'Sirtqi'),
+        ('kechki', 'Kechki'),
+        ('masofaviy', 'Masofaviy'),
+    ]
     specialty = models.ForeignKey(
         Specialty,
         on_delete=models.CASCADE,
@@ -22,6 +28,12 @@ class EducationPlan(models.Model):
         AcademicYear,
         on_delete=models.CASCADE,
         verbose_name="O'quv yili"
+    )
+    education_form = models.CharField(
+        max_length=20,
+        choices=FORM_CHOICES,
+        default='kunduzgi',
+        verbose_name="Ta'lim shakli",
     )
     course = models.IntegerField(
         choices=COURSE_CHOICES,
@@ -46,6 +58,7 @@ class PlanSubject(models.Model):
         (3, '3-semestr'), (4, '4-semestr'),
         (5, '5-semestr'), (6, '6-semestr'),
         (7, '7-semestr'), (8, '8-semestr'),
+        (9, '9-semestr'), (10, '10-semestr'),
     ]
 
     TYPE_CHOICES = [
@@ -93,8 +106,8 @@ class PlanSubject(models.Model):
     practice_hours = models.PositiveIntegerField(default=0, verbose_name="Amaliyot")
     lab_hours = models.PositiveIntegerField(default=0, verbose_name="Laboratoriya")
     seminar_hours = models.PositiveIntegerField(default=0, verbose_name="Seminar")
+    independent_hours = models.PositiveIntegerField(default=0, verbose_name="Mustaqil ta'lim", blank = True, null = True)
 
-    # independent_hours - OLIB TASHLANDI
 
     class Meta:
         verbose_name = "Rejadagi fan"
@@ -105,31 +118,9 @@ class PlanSubject(models.Model):
     def __str__(self):
         return f"{self.education_plan} {self.subject} ({self.semester}-semestr)"
 
-    def clean(self):
-        """
-        Ma'lumotlar to'g'riligini tekshirish.
-        DIQQAT: Mustaqil ta'lim olib tashlangani uchun, endi
-        Total Hours == Auditoriya soatlari yig'indisi bo'lishi shart EMAS.
-        Chunki Total Hours kreditga qarab 180 bo'lishi mumkin, auditoriya esa 60.
-        Shuning uchun bu yerdagi qat'iy tekshiruv olib tashlandi.
-        """
-        pass
 
-    def save(self, *args, **kwargs):
-        """Avtomatizatsiya"""
 
-        # 1. Umumiy soatni hisoblash (Kredit * 30)
-        if not self.total_hours and self.credit:
-            self.total_hours = self.credit * 30
 
-        # 2. Haftalik soatni (semester_time) avtomatik hisoblash
-        auditorium = self.lecture_hours + self.practice_hours + self.lab_hours + self.seminar_hours
-
-        # Standart semestr 15 hafta deb hisoblanadi.
-        if self.semester_time == 0 and auditorium > 0:
-            self.semester_time = int(auditorium / 15)
-
-        super().save(*args, **kwargs)
 
 
 class Workload(models.Model):

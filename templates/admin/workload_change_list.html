@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="general-report/" class="btn btn-success float-right" style="background: #009688; color: white; border: none;">
+            📊 Yillik Yuklama Jadvali
+        </a>
+    </li>
+{% endblock %}

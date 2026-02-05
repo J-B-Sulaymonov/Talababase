@@ -1,0 +1,299 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+<style>
+    /* -------------------------------------------------------------------
+       PRINT (CHOP ETISH) REJIMI SOZLAMALARI
+    ------------------------------------------------------------------- */
+    @media print {
+        #header, #content-related, .breadcrumbs, .messagelist, #footer, .action-bar { display: none !important; }
+        .sidebar { display: none !important; }
+
+        body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; }
+        .print-container {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            overflow: visible !important;
+            transform: scale(1);
+        }
+
+        .excel-table th, .excel-table td {
+            border: 1px solid #000 !important;
+        }
+
+        @page { size: landscape; margin: 5mm; }
+    }
+
+    /* EKRAN KO'RINISHI */
+    .print-container {
+        width: 100%;
+        margin: 20px auto;
+        background: white;
+        overflow-x: auto;
+        padding: 15px;
+    }
+
+    /* TUGMA DIZAYNI */
+    .action-bar { margin: 20px 0; text-align: left; }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 20px;
+        background-color: #6c757d;
+        color: #fff !important;
+        text-decoration: none;
+        border-radius: 50px;
+        font-family: sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: none;
+        transition: background-color 0.2s;
+    }
+    .btn-back:hover { background-color: #5a6268; }
+    .btn-back i { margin-right: 8px; font-style: normal; }
+
+    /* YANGI EXPORT TUGMASI UCHUN STIL */
+    .btn-export {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 20px;
+        background-color: #198754; /* Yashil rang */
+        color: #fff !important;
+        text-decoration: none;
+        border-radius: 50px;
+        font-family: sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: none;
+        margin-left: 10px; /* Orqaga tugmasidan masofa */
+        transition: background-color 0.2s;
+    }
+    .btn-export:hover { background-color: #157347; }
+    .btn-export i { margin-right: 8px; font-style: normal; }
+
+
+    /* JADVAL DIZAYNI */
+    .excel-table {
+        width: 100%;
+        min-width: 1200px;
+        border-collapse: collapse;
+        border-spacing: 0;
+        font-family: "Times New Roman", serif;
+        font-size: 12px; /* Shrift sal kichraytirildi (ixchamlik uchun) */
+        color: #000;
+        margin-top: 15px;
+    }
+
+    .excel-table th, .excel-table td {
+        border: 1px solid #000 !important;
+        padding: 3px 1px; /* Padding kamaytirildi */
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1.1;
+        background-clip: padding-box;
+    }
+
+    /* HEADER */
+    .excel-header th {
+        background-color: #fff;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    /* --- VERTIKAL MATNLAR (O'ZGARTIRILDI) --- */
+    .vertical-text {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        white-space: nowrap;
+        /* Balandlik kamaytirildi (ortiqcha joy yo'qolishi uchun) */
+        padding: 2px;
+        max-width: 35px;
+    }
+
+    /* Fan nomi ustuni */
+    .subject-name {
+        text-align: left !important;
+        padding-left: 5px !important;
+        font-weight: normal;
+        min-width: 250px;
+    }
+
+    /* RAQAMLAR QATORI */
+    .numbers-row th {
+        background-color: #f5f5f5;
+        font-size: 11px;
+        padding: 2px;
+        font-weight: bold;
+        border-top: 2px solid #000 !important;
+    }
+
+    .fw-bold { font-weight: bold; }
+    .col-narrow { min-width: 22px; } /* Semestr kataklari toraytirildi */
+
+    .special-header-text {
+        font-size: 10px;
+        font-weight: normal;
+        font-style: italic;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="print-container">
+
+    <div class="action-bar">
+        <a href="../" class="btn-back">
+            <i>←</i> Orqaga qaytish
+        </a>
+
+        <a href="{% url 'admin:education_plan_export' plan.pk %}" class="btn-export">
+            <i>↓</i> Excel yuklab olish
+        </a>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 10px; font-family: 'Times New Roman';">
+        <h3 style="margin:0; text-transform: uppercase; font-size: 18px;">O'QUV REJASI</h3>
+        <p style="margin:5px 0; font-size: 13px;">
+            <b>Yo'nalish:</b> {{ plan.specialty.name }} |
+            <b>O'quv yili:</b> {{ plan.academic_year }} |
+            <b>Kurs:</b> {{ plan.course }}
+        </p>
+    </div>
+
+    <table class="excel-table">
+        <thead>
+            <tr class="excel-header">
+                <th rowspan="5" style="width: 25px;">T/r</th>
+                <th rowspan="5">O'quv fanlari, bloklar va faoliyat turlarining nomlari</th>
+
+                <th colspan="9">Talabaning o'quv yuklamasi, soatlarda</th>
+
+                <th colspan="8">Soatlarning kurs, semestr va haftalar bo'yicha taqsimoti</th>
+
+                <th colspan="8">Kreditlarning kurs, semestr va haftalar bo'yicha taqsimoti</th>
+
+                <th rowspan="5" class="vertical-text">Jami kreditlar</th>
+            </tr>
+
+            <tr class="excel-header">
+                <th rowspan="4" colspan="2" style="font-size: 11px; line-height: 1.2;">Umumiy<br>yuklama<br>hajmi</th>
+
+                <th colspan="6" style="border-bottom: 2px solid #000 !important;">Auditoriya mashg'ulotlari, soatlarda</th>
+
+                <th rowspan="4" class="vertical-text">Mustaqil ta'lim</th>
+
+                <th colspan="2">1-kurs</th> <th colspan="2">2-kurs</th>
+                <th colspan="2">3-kurs</th> <th colspan="2">4-kurs</th>
+
+                <th colspan="2">1-kurs</th> <th colspan="2">2-kurs</th>
+                <th colspan="2">3-kurs</th> <th colspan="2">4-kurs</th>
+            </tr>
+
+            <tr class="excel-header">
+                <th rowspan="3" class="vertical-text">Jami</th>
+                <th rowspan="3" class="vertical-text">Ma'ruza</th>
+                <th rowspan="3" class="vertical-text">Amaliy</th>
+                <th rowspan="3" class="vertical-text">Laboratoriya</th>
+                <th rowspan="3" class="vertical-text">Seminar</th>
+                <th rowspan="3" class="vertical-text">Kurs ishi</th>
+
+                <th colspan="8">Semestrlar</th>
+                <th colspan="8">Semestrlar</th>
+            </tr>
+
+            <tr class="excel-header">
+                <th class="col-narrow">1</th><th class="col-narrow">2</th>
+                <th class="col-narrow">3</th><th class="col-narrow">4</th>
+                <th class="col-narrow">5</th><th class="col-narrow">6</th>
+                <th class="col-narrow">7</th><th class="col-narrow">8</th>
+
+                <th class="col-narrow">1</th><th class="col-narrow">2</th>
+                <th class="col-narrow">3</th><th class="col-narrow">4</th>
+                <th class="col-narrow">5</th><th class="col-narrow">6</th>
+                <th class="col-narrow">7</th><th class="col-narrow">8</th>
+            </tr>
+
+            <tr class="excel-header">
+                <th colspan="8" class="special-header-text">Semestrdagi auditoriya mashg'ulotlari haftalarining soni</th>
+                <th colspan="8" class="special-header-text">Kredit taqsimoti</th>
+            </tr>
+
+            <tr class="numbers-row">
+                <th>1</th>
+                <th>2</th>
+                <th>3</th> <th>4</th> <th>5</th> <th>6</th> <th>7</th> <th>8</th> <th>9</th> <th>10</th> <th>11</th>
+
+                {% for i in "12345678"|make_list %}<th>{{ forloop.counter|add:11 }}</th>{% endfor %}
+                {% for i in "12345678"|make_list %}<th>{{ forloop.counter|add:19 }}</th>{% endfor %}
+
+                <th>28</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="font-weight: bold; background-color: #fff;">
+                <td></td>
+                <td class="subject-name">Fanlar</td>
+                <td>{{ totals.total }}</td>
+                <td></td>
+                <td>{{ totals.auditorium }}</td>
+                <td>{{ totals.lecture }}</td>
+                <td>{{ totals.practice }}</td>
+                <td>{{ totals.lab }}</td>
+                <td>{{ totals.seminar }}</td>
+                <td>0</td>
+                <td>{{ totals.independent }}</td>
+
+                <td colspan="8"></td>
+                <td colspan="8"></td>
+
+                <td>{{ totals.credit }}</td>
+            </tr>
+
+            {% for item in subjects %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td class="subject-name">{{ item.obj.subject.name }}</td>
+                <td class="fw-bold">{{ item.total_calc }}</td>
+                <td></td>
+                <td class="fw-bold">{{ item.auditorium_hours }}</td>
+                <td>{% if item.obj.lecture_hours %}{{ item.obj.lecture_hours }}{% endif %}</td>
+                <td>{% if item.obj.practice_hours %}{{ item.obj.practice_hours }}{% endif %}</td>
+                <td>{% if item.obj.lab_hours %}{{ item.obj.lab_hours }}{% endif %}</td>
+                <td>{% if item.obj.seminar_hours %}{{ item.obj.seminar_hours }}{% endif %}</td>
+                <td></td>
+                <td class="fw-bold">{{ item.independent_hours }}</td>
+
+                {% for i in "12345678"|make_list %}
+                    <td>
+                        {% if item.obj.semester|stringformat:"i" == i %}
+                            {{ item.obj.semester_time }}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+
+                {% for i in "12345678"|make_list %}
+                    <td>
+                        {% if item.obj.semester|stringformat:"i" == i %}
+                            <b>{{ item.obj.credit }}</b>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+
+                <td class="fw-bold">{{ item.obj.credit }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 15px; font-size: 12px; font-family: 'Times New Roman'; padding-left: 5px;">
+        <p><i>Izoh: Ushbu hujjat elektron tarzda shakllantirildi.</i></p>
+    </div>
+</div>
+{% endblock %}
