@@ -1238,8 +1238,7 @@ class StudentAdmin(admin.ModelAdmin):
     def export_excel_view(self, request):
         """
         Talabalar ro'yxatini Excelga export qilish.
-        Default holatda eski ustunlar chiqadi.
-        Contract raqami va sanasi faqat tanlansa chiqadi.
+        Yangilangan: Yo'nalish va Guruh alohida, pullar va foizlar butun sonda.
         """
         # 1. Filtrlangan ma'lumotlarni olish
         try:
@@ -1251,17 +1250,19 @@ class StudentAdmin(admin.ModelAdmin):
         # 2. Formadan tanlangan ustunlarni olish
         selected_fields = request.POST.getlist('selected_fields')
 
-        # --- O'ZGARISH SHU YERDA: DEFAULT RO'YXAT ---
-        # Agar hech narsa tanlanmagan bo'lsa, standart ustunlar chiqadi
-        # LEKIN contract_number va contract_date BU YERDA YO'Q
+        # --- O'ZGARISH: Default ro'yxatga Yo'nalish, Grant va boshqalar qo'shildi ---
         if not selected_fields:
             selected_fields = [
                 'full_name',
                 'student_hemis_id',
-                'group',
+                'specialty',               # <--- Yangi: Yo'nalish
+                'group',                   # <--- Guruh (Alohida)
                 'education_form',
-                'total_paid_amount',
-                'payment_diff',
+                'current_contract_amount', # <--- Shartnoma (Jami)
+                'current_grant_amount',    # <--- Grant (Jami)
+                'total_paid_amount',       # <--- To'lov
+                'payment_diff',            # <--- Qarz
+                'payment_percent',         # <--- Foiz
                 'qabul_order_number',
                 'qabul_order_date'
             ]
@@ -1279,24 +1280,24 @@ class StudentAdmin(admin.ModelAdmin):
         left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
         thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
                              top=Side(style='thin'), bottom=Side(style='thin'))
-        money_format = '#,##0'
+        money_format = '#,##0'  # Faqat butun sonlar uchun format
 
         # 4. Header nomlari
         field_titles = {
             'student_hemis_id': 'ID (Hemis)',
             'full_name': 'F.I.SH.',
+            'specialty': "Yo'nalish",         # <--- Sarlavha
             'group': 'Guruh',
             'course_year': 'Kurs',
             'education_form': "Ta'lim shakli",
             'education_type': "Ta'lim turi",
             'payment_type': "To'lov turi",
 
-            # --- YANGI MAYDONLAR ---
             'contract_number': 'Shartnoma raqami',
             'contract_date': 'Shartnoma sanasi',
-            # -----------------------
 
             'current_contract_amount': 'Hisoblangan kontrakt',
+            'current_grant_amount': 'Grant summasi', # <--- Sarlavha
             'total_paid_amount': "To'langan summa",
             'payment_diff': 'Qarzdorlik',
             'payment_percent': 'Foiz (%)',
@@ -1332,20 +1333,22 @@ class StudentAdmin(admin.ModelAdmin):
 
             if field == 'full_name':
                 ws.column_dimensions[column_letter].width = 35
+            elif field == 'specialty':
+                ws.column_dimensions[column_letter].width = 30
             elif field in ['contract_number', 'contract_date']:
                 ws.column_dimensions[column_letter].width = 20
             else:
                 ws.column_dimensions[column_letter].width = 15
 
         # 5. Ma'lumotlarni yozish
-        money_fields = ['current_contract_amount', 'total_paid_amount', 'payment_diff',
+        # Grantni ham pul maydonlariga qo'shdik
+        money_fields = ['current_contract_amount', 'current_grant_amount', 'total_paid_amount', 'payment_diff',
                         'subject_debt_total', 'subject_debt_paid', 'subject_debt_diff']
 
         row_num = 2
         active_year = AcademicYear.objects.filter(is_active=True).first()
 
         for obj in queryset:
-
             # --- SHARTNOMANI OLISH LOGIKASI ---
             active_contract = None
             need_contract = ('contract_number' in selected_fields or 'contract_date' in selected_fields)
@@ -1356,14 +1359,13 @@ class StudentAdmin(admin.ModelAdmin):
                     contract_type='contract'
                 ).first()
 
-            # Qabul buyrug'ini olish (eski logikangiz bo'yicha)
+            # Qabul buyrug'ini olish
             qabul_order = None
             if 'qabul_order_number' in selected_fields or 'qabul_order_date' in selected_fields:
                 qabul_order = obj.order_set.filter(
                     order_type__name__icontains='qabul',
                     is_deleted=False
                 ).order_by('-order_date').first()
-            # ----------------------------------
 
             for col_num, field in enumerate(selected_fields, 1):
                 cell = ws.cell(row=row_num, column=col_num)
@@ -1393,15 +1395,16 @@ class StudentAdmin(admin.ModelAdmin):
                         val = ""
                     cell.alignment = center_align
 
-                # --- 3. Obyektning o'z maydonlari ---
-                elif hasattr(obj, field):
-                    val = getattr(obj, field)
-                    if isinstance(val, (datetime, date)):
-                        val = val.strftime('%d.%m.%Y')
-                    elif callable(val):
-                        val = val()
+                # --- 3. Foizni butun qilish ---
+                elif field == 'payment_percent':
+                    if hasattr(obj, 'payment_percent') and obj.payment_percent is not None:
+                        val = int(obj.payment_percent) # Butun qismga o'tkazish
+                    else:
+                        val = 0
 
                 # --- 4. Bog'langan maydonlar ---
+                elif field == 'specialty': # <--- Yo'nalishni guruh orqali olish
+                    val = obj.group.specialty.name if obj.group and obj.group.specialty else ""
                 elif field == 'group':
                     val = str(obj.group.name) if obj.group else ""
                 elif field == 'course_year':
@@ -1411,24 +1414,36 @@ class StudentAdmin(admin.ModelAdmin):
                 elif field == 'district':
                     val = obj.district.name if obj.district else ""
 
+                # --- 5. Obyektning o'z maydonlari (Grant va Contract shu yerda avtomatik olinadi) ---
+                elif hasattr(obj, field):
+                    val = getattr(obj, field)
+                    if isinstance(val, (datetime, date)):
+                        val = val.strftime('%d.%m.%Y')
+                    elif callable(val):
+                        val = val()
+
                 # --- Qiymatni yozish ---
                 if val is None:
                     val = ""
 
                 if field in money_fields:
                     try:
-                        cell.value = float(val) if val else 0
+                        # MUHIM: Floatni Int ga o'tkazish (faqat butun qism)
+                        cell.value = int(float(val)) if val else 0
                         cell.number_format = money_format
                     except (ValueError, TypeError):
                         cell.value = val
+                elif field == 'payment_percent':
+                    cell.value = val
+                    cell.alignment = center_align
                 else:
                     cell.value = str(val)
 
                 cell.border = thin_border
 
-                if field not in ['full_name', 'address'] and field not in money_fields:
+                if field not in ['full_name', 'address', 'specialty'] and field not in money_fields:
                     cell.alignment = center_align
-                elif field == 'full_name':
+                elif field in ['full_name', 'specialty']:
                     cell.alignment = left_align
 
             row_num += 1
