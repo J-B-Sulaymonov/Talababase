@@ -1,0 +1,994 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static humanize %}
+
+{% block extrahead %}
+{{ block.super }}
+
+<script id="groups-data" type="application/json">
+    {{ groups_json|safe }}
+</script>
+<script id="levels-data" type="application/json">
+    {{ levels_json|safe }}
+</script>
+<script id="teachers-data" type="application/json">
+    {{ teachers_json|safe }}
+</script>
+<script id="status-data" type="application/json">
+    {{ status_json|safe }}
+</script>
+
+{# --- STATISTIKA BLOKI --- #}
+<div id="stats-data-source" style="display: none;">
+    <div class="stats-dashboard-widget">
+        <div class="stat-box students">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Jami o'quvchilar</span>
+                <span class="stat-value">{{ cl.result_count|intcomma }}</span>
+            </div>
+        </div>
+        {% if user.is_superuser or user.username == 'Iskandar' or user.username == 'direktor' %}
+        <div class="stat-box monthly">
+            <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Oylik to'lovlar</span>
+                <span class="stat-value">{{ footer_stats.monthly|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+
+        <div class="stat-box paid">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">To'langan</span>
+                <span class="stat-value">{{ footer_stats.paid|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+        <div class="stat-box debt">
+            <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Joriy Qarz</span>
+                <span class="stat-value">{{ footer_stats.debt|floatformat:0|intcomma|default:"0" }}</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    /* 1. Header qismini yashirish */
+    .content-header,
+    .page-header,
+    .breadcrumb,
+    div[class*="content-header"],
+    div[class*="page-header"] {
+        display: none !important;
+    }
+
+    /* Jazzmin Add tugmasini yashirish (biz o'zimiz toolbar ichida yangi tugma yaratamiz) */
+    a.btn[href*="/add/"]:not(.btn-add-student),
+    a[href*="/add/"].btn-primary:not(.btn-add-student),
+    a[href*="/add/"].btn-success:not(.btn-add-student),
+    a.addlink:not(.btn-add-student),
+    .object-tools a.addlink,
+    .submit-row a[href*="/add/"]:not(.btn-add-student) {
+        display: none !important;
+    }
+
+    /* 2. Jazzmin filter dropdowns va Izlash tugmasini yashirish */
+    #changelist-filter,
+    .changelist-filter,
+    #changelist-search select,
+    #changelist-search .form-group:has(select),
+    #toolbar form>div:has(select),
+    #toolbar select,
+    .actions,
+    .date-hierarchy {
+        display: none !important;
+    }
+
+    #changelist-search .btn,
+    #changelist-search button,
+    #changelist-search input[type="submit"],
+    #changelist-search label {
+        display: none !important;
+    }
+
+    /* Natijalar sonini yashirish */
+    .small.quiet,
+    .actions+.small,
+    p.paginator,
+    span.small.quiet {
+        display: none !important;
+    }
+
+    /* JADVAL DIZAYNLARI */
+    #result_list {
+        border-collapse: separate !important;
+        border-spacing: 0 8px !important;
+        width: 100%;
+        border: none !important;
+        margin-top: 0 !important;
+        /* Padding kamaytirildi */
+    }
+
+    .results,
+    .card-body {
+        min-height: 55vh !important;
+        margin-top: 0 !important;
+        /* Padding kamaytirildi */
+        padding-top: 0 !important;
+    }
+
+    /* HEADER */
+    #result_list thead th {
+        background-color: #2c3e50;
+        color: #ffffff !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 13px;
+        padding: 16px 12px;
+        border: none;
+        vertical-align: middle;
+        position: relative;
+        white-space: nowrap;
+    }
+
+    #result_list thead th a {
+        color: #ffffff !important;
+        text-decoration: none;
+    }
+
+    #result_list thead th .sortoptions {
+        display: none;
+    }
+
+    #result_list thead th a:hover {
+        color: #dbe4ff !important;
+        text-decoration: underline;
+    }
+
+    #result_list tbody tr {
+        background-color: #ffffff;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s;
+        border-radius: 8px;
+    }
+
+    #result_list tbody tr:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        z-index: 100;
+        position: relative;
+    }
+
+    #result_list tbody td,
+    #result_list tbody th {
+        padding: 12px 14px;
+        vertical-align: middle;
+        border: none;
+        font-size: 15px;
+        color: #2d3436;
+        font-weight: 500;
+        height: 60px;
+    }
+
+    #result_list tbody tr td:first-child,
+    #result_list tbody tr th:first-child {
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+    }
+
+    #result_list tbody tr td:last-child {
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+
+    /* Summalar bir qatorda */
+    #result_list .field-get_monthly_payment,
+    #result_list .field-get_total_payment,
+    #result_list .field-get_payment_debt {
+        white-space: nowrap !important;
+        min-width: 120px;
+    }
+
+    /* Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 700;
+        min-width: 80px;
+        white-space: nowrap;
+    }
+
+    .badge-success {
+        background-color: #e6fcf5;
+        color: #0ca678;
+        border: 1px solid #c3fae8;
+    }
+
+    .badge-warning {
+        background-color: #fff9db;
+        color: #f08c00;
+        border: 1px solid #ffec99;
+    }
+
+    .badge-danger {
+        background-color: #fff5f5;
+        color: #fa5252;
+        border: 1px solid #ffc9c9;
+    }
+
+    .badge-info {
+        background-color: #e7f5ff;
+        color: #1c7ed6;
+        border: 1px solid #a5d8ff;
+    }
+
+    .badge-secondary {
+        background-color: #f8f9fa;
+        color: #868e96;
+        border: 1px solid #e9ecef;
+    }
+
+    .group-badge {
+        background: #f1f3f5;
+        color: #495057;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid #dee2e6;
+        white-space: nowrap;
+        display: inline-block;
+        margin: 2px;
+    }
+
+    /* Filter Icons */
+    .excel-filter-wrapper {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        position: relative;
+        z-index: 900;
+        vertical-align: middle;
+    }
+
+    .excel-filter-btn {
+        background-color: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 6px;
+        color: #fff;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .excel-filter-btn:hover {
+        background-color: rgba(255, 255, 255, 0.4);
+        color: #fff;
+    }
+
+    .excel-filter-btn.active-filter {
+        background-color: #f1c40f;
+        color: #2c3e50;
+        border-color: #f39c12;
+        font-weight: bold;
+    }
+
+    .excel-dropdown {
+        display: none;
+        position: absolute;
+        top: 35px;
+        right: 0;
+        background: white;
+        border: 1px solid #dfe6e9;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
+        min-width: 260px;
+        border-radius: 8px;
+        text-align: left;
+        padding: 8px 0;
+    }
+
+    .excel-dropdown label {
+        display: flex;
+        align-items: center;
+        padding: 12px 18px;
+        color: #2d3436;
+        font-size: 14px;
+        border-bottom: 1px solid #f1f2f6;
+        cursor: pointer;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .excel-dropdown label:hover {
+        background-color: #f1f2f6;
+    }
+
+    .excel-dropdown input[type="checkbox"] {
+        margin-right: 12px;
+        width: 18px;
+        height: 18px;
+        accent-color: #0984e3;
+    }
+
+    .excel-filter-actions {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 18px;
+        background: #f8f9fa;
+        border-top: 1px solid #dfe6e9;
+        border-radius: 0 0 8px 8px;
+    }
+
+    .btn-apply {
+        background: #00b894;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-clear {
+        background: #ff7675;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    /* Statistika */
+    .stats-dashboard-widget {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 5px;
+        flex-wrap: wrap;
+    }
+
+    .stat-box {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+        min-width: 200px;
+        flex: 1;
+        transition: transform 0.2s;
+        cursor: default;
+    }
+
+    .stat-box:hover {
+        transform: translateY(-3px);
+    }
+
+    .stat-box.students .stat-icon {
+        color: #fff;
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-box.monthly .stat-icon {
+        color: #fff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-box.paid .stat-icon {
+        color: #fff;
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stat-box.debt .stat-icon {
+        color: #fff;
+        background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+    }
+
+    .stat-icon {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 20px;
+        margin-right: 15px;
+        flex-shrink: 0;
+    }
+
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #adb5bd;
+        font-weight: 700;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: 800;
+        color: #212529;
+        white-space: nowrap;
+    }
+
+    /* Custom Toolbar Styles */
+    #custom-toolbar-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+    }
+
+    /* Search bar va Filterlani bitta qatorga olish */
+    #toolbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 5px !important;
+        /* Padding kamaytirildi */
+        background: white;
+        padding: 10px 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    .search-filter-area {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    /* Search Bar Cleanup */
+    #changelist-search label,
+    #changelist-search input[type="submit"] {
+        display: none !important;
+    }
+
+    #changelist-search input[type="text"] {
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        padding: 8px 12px;
+        height: 38px;
+        min-width: 250px;
+    }
+
+    /* Modal */
+    .export-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+
+    .export-modal-content {
+        background-color: #f8f9fa;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .export-modal-header {
+        background: #fff;
+        padding: 20px 30px;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .export-modal-header h3 {
+        margin: 0;
+        color: #212529;
+        font-size: 20px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+    }
+
+    .close-modal {
+        font-size: 24px;
+        color: #adb5bd;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .close-modal:hover {
+        color: #fa5252;
+    }
+
+    .export-modal-body {
+        padding: 30px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 25px;
+    }
+
+    .field-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+        border: 1px solid #e9ecef;
+    }
+
+    .field-card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f1f3f5;
+    }
+
+    .checkbox-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        color: #495057;
+        font-size: 13px;
+    }
+
+    .checkbox-item:hover {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+    .checkbox-item input {
+        accent-color: #107c41;
+        margin-right: 10px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .checkbox-item:has(input:checked) {
+        background-color: #f0fff4;
+        border-color: #b2f2bb;
+        color: #2b8a3e;
+        font-weight: 500;
+    }
+
+    .export-modal-footer {
+        background: #fff;
+        padding: 20px 30px;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        border-radius: 0 0 16px 16px;
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 1px solid #ced4da;
+        color: #495057;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .btn-outline:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+    }
+
+    .btn-primary-action {
+        background: #107c41;
+        color: white;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 6px rgba(16, 124, 65, 0.2);
+        transition: 0.2s;
+    }
+
+    .btn-primary-action:hover {
+        background: #0c5e31;
+        transform: translateY(-1px);
+    }
+
+    @media (max-width: 768px) {
+        .export-modal-body {
+            grid-template-columns: 1fr;
+        }
+
+        .checkbox-list {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        initToolbar();
+    });
+
+    function initToolbar() {
+        // --- 1. STATISTIKA PANELINI JOYLASH ---
+        if (!document.querySelector('.stats-dashboard-widget.injected')) {
+            const statsSource = document.getElementById('stats-data-source');
+            if (statsSource) {
+                const statsHTML = statsSource.innerHTML;
+                const statsDiv = document.createElement('div');
+                statsDiv.innerHTML = statsHTML;
+                statsDiv.querySelector('.stats-dashboard-widget').classList.add('injected');
+
+                // Statistika panelini asosiy kontentning tepasiga joylash
+                const contentMain = document.querySelector('.content-main') || document.querySelector('#content-main');
+                if (contentMain) {
+                    const form = document.getElementById('changelist-form');
+                    if (form) {
+                        form.parentNode.insertBefore(statsDiv, form);
+                    } else {
+                        contentMain.prepend(statsDiv);
+                    }
+                }
+            }
+        }
+
+        // --- 2. YANGI TOOLBAR (Search + Filters + Buttons) ---
+        const searchForm = document.getElementById('changelist-search');
+
+        // Toolbar container yaratish (agar yo'q bo'lsa)
+        let buttonsContainer = document.getElementById('custom-toolbar-container');
+        if (!buttonsContainer) {
+            buttonsContainer = document.createElement('div');
+            buttonsContainer.id = 'custom-toolbar-container';
+        }
+
+        // --- 3. EXCEL tugmasini yaratish (agar yo'q bo'lsa) ---
+        if (!buttonsContainer.querySelector('a.btn-excel-export')) {
+            const exportBtn = document.createElement('a');
+            exportBtn.href = "#";
+            exportBtn.onclick = function (e) { e.preventDefault(); openExportModal(); };
+            exportBtn.className = "btn btn-success btn-excel-export";
+            exportBtn.style.cssText = "background-color: #107c41 !important; border-color: #107c41 !important; color: white !important; margin-right: 8px; display: inline-flex; align-items: center;";
+            exportBtn.innerHTML = '<i class="fas fa-file-excel" style="margin-right: 5px;"></i> Excelga yuklash';
+            buttonsContainer.appendChild(exportBtn);
+        }
+
+        // Header qismini JS orqali yashirish
+        const potentialHeaders = document.querySelectorAll('.content-header, .page-header, .breadcrumb, h1');
+        potentialHeaders.forEach(el => {
+            if (!el.closest('#toolbar-row') && !el.closest('.export-modal')) {
+                el.style.display = 'none';
+            }
+        });
+
+        const wrapper = document.querySelector('.content-wrapper');
+        if (wrapper) {
+            const firstDiv = wrapper.querySelector('div');
+            if (firstDiv && (firstDiv.classList.contains('content-header') || firstDiv.classList.contains('page-header'))) {
+                firstDiv.style.display = 'none';
+            }
+        }
+
+        // --- 4. TOOLBARGA BIRLASHTIRISH (avval toolbar yaratamiz!) ---
+        if (searchForm) {
+            if (!document.getElementById('toolbar-row')) {
+                const parent = searchForm.parentNode;
+                const toolbarRow = document.createElement('div');
+                toolbarRow.id = 'toolbar-row';
+
+                parent.replaceChild(toolbarRow, searchForm);
+
+                const leftSide = document.createElement('div');
+                leftSide.className = 'search-filter-area';
+                leftSide.appendChild(searchForm);
+
+                toolbarRow.appendChild(leftSide);
+                toolbarRow.appendChild(buttonsContainer);
+            } else {
+                const toolbarRow = document.getElementById('toolbar-row');
+                if (!toolbarRow.contains(buttonsContainer)) {
+                    toolbarRow.appendChild(buttonsContainer);
+                }
+            }
+
+            searchForm.style.marginBottom = '0';
+            searchForm.style.width = 'auto';
+            searchForm.style.flex = '1';
+        } else {
+            const statsDiv = document.querySelector('.stats-dashboard-widget.injected');
+            if (statsDiv && statsDiv.parentNode) {
+                if (!document.getElementById('toolbar-row')) {
+                    const toolbarRow = document.createElement('div');
+                    toolbarRow.id = 'toolbar-row';
+                    toolbarRow.appendChild(buttonsContainer);
+                    statsDiv.parentNode.insertBefore(toolbarRow, statsDiv.nextSibling);
+                }
+            }
+        }
+
+        // --- 5. Add tugmasini YARATISH (ko'chirish o'rniga yangi tugma) ---
+        // Agar hali yaratilmagan bo'lsa, yangi tugma yaratamiz
+        if (!document.querySelector('a.btn-add-student')) {
+            const addBtn = document.createElement('a');
+            addBtn.href = window.location.pathname + 'add/';
+            addBtn.className = 'btn btn-success btn-add-student';
+            addBtn.style.cssText = 'display: inline-flex; align-items: center; margin: 0;';
+            addBtn.innerHTML = '<i class="fas fa-plus" style="margin-right: 5px;"></i> O\'quvchi qo\'shish';
+            buttonsContainer.appendChild(addBtn);
+        } else {
+            // Agar mavjud bo'lsa, lekin buttonsContainer ichida bo'lmasa, uni ko'chiramiz
+            const existingBtn = document.querySelector('a.btn-add-student');
+            if (existingBtn && !buttonsContainer.contains(existingBtn)) {
+                buttonsContainer.appendChild(existingBtn);
+            }
+        }
+
+        // --- 6. JS FILTERLAR ---
+        initFilters();
+    }
+
+    function initFilters() {
+        // Agar biror filter wrapper allaqachon mavjud bo'lsa, qayta yaratmaymiz
+        // Lekin ba'zida status filter kechroq qo'shilishi mumkin, shuning uchun checkni individual qilish yaxshi
+        // Quyida har bir filter uchun alohida check bor.
+
+        let groupOptions = [];
+        let levelOptions = [];
+        let teacherOptions = [];
+        let statusOptions = [];
+
+        try {
+            groupOptions = JSON.parse(document.getElementById('groups-data').textContent).map(g => ({ val: g.id.toString(), label: g.name }));
+            levelOptions = JSON.parse(document.getElementById('levels-data').textContent).map(l => ({ val: l.id.toString(), label: l.name }));
+            teacherOptions = JSON.parse(document.getElementById('teachers-data').textContent).map(t => ({ val: t.id.toString(), label: t.name }));
+        } catch (e) { }
+
+        try {
+            if (document.getElementById('status-data')) {
+                statusOptions = JSON.parse(document.getElementById('status-data').textContent).map(s => ({ val: s.id, label: s.name }));
+            }
+        } catch (e) { }
+
+        createExcelFilter("guruh", "group_filter", groupOptions);
+        createExcelFilter("daraja", "level_filter", levelOptions);
+        createExcelFilter("o'qituvchi", "teacher_filter", teacherOptions);
+        createExcelFilter("status", "status", statusOptions);
+    }
+
+    function createExcelFilter(headerTextKeyword, paramName, options) {
+        if (!options || options.length === 0) return;
+
+        const headers = document.querySelectorAll('#result_list th');
+        let targetTh = null;
+        headers.forEach(th => {
+            const txt = th.innerText.trim().toLowerCase();
+            if (txt.includes(headerTextKeyword.toLowerCase())) { targetTh = th; }
+        });
+        if (!targetTh) return;
+
+        // Agar allaqachon filter bo'lsa
+        if (targetTh.querySelector('.excel-filter-wrapper')) return;
+
+        targetTh.style.overflow = "visible"; targetTh.style.position = "relative";
+        const params = new URLSearchParams(window.location.search);
+        const currentRaw = params.get(paramName) || '';
+        const selectedArr = currentRaw.split(',');
+        const isActive = currentRaw ? 'active-filter' : '';
+        let listItems = '';
+        options.forEach(opt => {
+            const isChecked = selectedArr.includes(opt.val) ? 'checked' : '';
+            listItems += `<label><input type="checkbox" value="${opt.val}" ${isChecked}> ${opt.label}</label>`;
+        });
+
+        const html = `
+        <div class="excel-filter-wrapper" onclick="event.stopPropagation();">
+            <button type="button" class="excel-filter-btn ${isActive}" onclick="toggleExcelFilter(this)" title="Filter"><i class="fas fa-filter"></i></button>
+            <div class="excel-dropdown" onclick="event.stopPropagation();">
+                <div style="max-height: 250px; overflow-y: auto;">${listItems}</div>
+                <div class="excel-filter-actions">
+                    <button type="button" class="btn-clear" onclick="applyCustomFilter('${paramName}', true)">Tozalash</button>
+                    <button type="button" class="btn-apply" onclick="applyCustomFilter('${paramName}', false)">Qo'llash</button>
+                </div>
+            </div>
+        </div>`;
+        const textDiv = targetTh.querySelector('.text');
+        if (textDiv) {
+            textDiv.style.display = 'inline-flex'; textDiv.style.alignItems = 'center';
+            textDiv.insertAdjacentHTML('beforeend', html);
+        } else { targetTh.insertAdjacentHTML('beforeend', html); }
+    }
+
+    // --- GLOBAL ACTIONS ---
+    window.toggleExcelFilter = function (btn) {
+        document.querySelectorAll('.excel-dropdown').forEach(d => { if (d !== btn.nextElementSibling) d.style.display = 'none'; });
+        const menu = btn.nextElementSibling; menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    };
+    window.applyCustomFilter = function (paramName, clear) {
+        const params = new URLSearchParams(window.location.search);
+        if (clear) { params.delete(paramName); } else {
+            const openDropdown = document.querySelector('.excel-dropdown[style*="block"]');
+            if (openDropdown) {
+                const checkedBoxes = openDropdown.querySelectorAll('input[type="checkbox"]:checked');
+                const values = Array.from(checkedBoxes).map(cb => cb.value);
+                if (values.length > 0) params.set(paramName, values.join(',')); else params.delete(paramName);
+            }
+        }
+        window.location.search = params.toString();
+    };
+    window.addEventListener('click', function (e) { if (!e.target.closest('.excel-filter-wrapper')) { document.querySelectorAll('.excel-dropdown').forEach(d => d.style.display = 'none'); } });
+
+    // --- MODAL FUNKSIYALARI ---
+    function openExportModal() { document.getElementById('exportModal').style.display = 'flex'; }
+    function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+
+    function toggleAllCheckboxes() {
+        const checkboxes = document.querySelectorAll('#exportForm input[type="checkbox"]');
+        const allChecked = Array.from(checkboxes).every(c => c.checked);
+        checkboxes.forEach(c => c.checked = !allChecked);
+    }
+
+    function submitExport() {
+        const form = document.getElementById('exportForm');
+        const urlParams = new URLSearchParams(window.location.search);
+        const baseUrl = form.getAttribute('data-base-url');
+
+        // Filter parametrlarini hidden input sifatida qo'shish
+        urlParams.forEach(function (value, key) {
+            let hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = key;
+            hidden.value = value;
+            form.appendChild(hidden);
+        });
+
+        form.action = baseUrl;
+        form.submit();
+        closeExportModal();
+    }
+
+    window.onclick = function (e) { if (e.target == document.getElementById('exportModal')) closeExportModal(); }
+</script>
+{% endblock %}
+
+
+{% block content %}
+{{ block.super }}
+
+<div id="exportModal" class="export-modal">
+    <div class="export-modal-content">
+        <div class="export-modal-header">
+            <h3><i class="fas fa-file-excel" style="color: #107c41; margin-right: 12px;"></i> Ma'lumotlarni yuklash</h3>
+            <span class="close-modal" onclick="closeExportModal()">&times;</span>
+        </div>
+
+        <form id="exportForm" method="post" data-base-url="{% url 'admin:export_students_excel' %}">
+            {% csrf_token %}
+            <div class="export-modal-body">
+                <div class="field-card">
+                    <div class="field-card-title">
+                        <i class="fas fa-user" style="margin-right: 8px; color: #4facfe;"></i> Shaxsiy ma'lumotlar
+                    </div>
+                    <div class="checkbox-list">
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="full_name"
+                                checked>
+                            F.I.SH</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="phone_number"
+                                checked>
+                            Telefon</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="parent_phone"
+                                checked>
+                            Ota-ona telefoni</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="status"
+                                checked>
+                            Status</label>
+                    </div>
+                </div>
+
+                <div class="field-card">
+                    <div class="field-card-title">
+                        <i class="fas fa-layer-group" style="margin-right: 8px; color: #667eea;"></i> O'qish
+                        ma'lumotlari
+                    </div>
+                    <div class="checkbox-list">
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="group"
+                                checked>
+                            Guruh</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="level"
+                                checked>
+                            Daraja</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="teacher"
+                                checked>
+                            O'qituvchi</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="days" checked>
+                            Dars
+                            kunlari</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="time" checked>
+                            Dars
+                            vaqti</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="enrolled_date"
+                                checked>
+                            Qabul sanasi</label>
+                    </div>
+                </div>
+
+                <div class="field-card">
+                    <div class="field-card-title">
+                        <i class="fas fa-wallet" style="margin-right: 8px; color: #43e97b;"></i> To'lov ma'lumotlari
+                    </div>
+                    <div class="checkbox-list">
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields"
+                                value="monthly_payment" checked> Oylik to'lov</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="total_paid"
+                                checked>
+                            Jami to'langan</label>
+                        <label class="checkbox-item"><input type="checkbox" name="selected_fields" value="debt" checked>
+                            Qarzdorlik</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="export-modal-footer">
+                <button type="button" class="btn-outline" onclick="toggleAllCheckboxes()">Barchasini tanlash</button>
+                <button type="button" class="btn-primary-action" onclick="submitExport()">
+                    <i class="fas fa-download"></i> Yuklash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

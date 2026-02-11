@@ -99,7 +99,7 @@
     }
 
     @media print {
-        .print-btn, .filter-section, .breadcrumbs, #header, .nav-sidebar {
+        .print-btn, .excel-btn, .filter-section, .breadcrumbs, #header, .nav-sidebar {
             display: none !important;
         }
         .content { margin: 0; padding: 0; width: 100%; }
@@ -121,7 +121,12 @@
 
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h1 style="margin: 0; padding: 10px 0; font-size: 20px;">{{ title }}</h1>
-        <button onclick="window.print()" class="print-btn">🖨️ Chop etish</button>
+        <div>
+            <a href="{% url 'admin:workload_export_excel' %}?{{ request.GET.urlencode }}" class="excel-btn" style="background: #217346; color: white; padding: 8px 15px; border-radius: 4px; text-decoration: none; margin-right: 5px; font-size: 14px;">
+                📊 Excelga yuklash
+            </a>
+            <button onclick="window.print()" class="print-btn" style="float: none; margin-bottom: 0;">🖨️ Chop etish</button>
+        </div>
     </div>
 
     <form method="get" class="filter-section">

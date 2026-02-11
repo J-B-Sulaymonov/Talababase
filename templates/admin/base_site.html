@@ -10,8 +10,12 @@
 {% block extrahead %}
 {{ block.super }}
 <style>
+
     /* App ichidagi modellar ro'yxatini o'nga surish */
     /* 1. Sidebar ichidagi gorizontal scrollni butkul yo'qotish */
+    .content-wrapper>.content {
+    padding: 0.3rem 2rem;
+}
     .main-sidebar {
         overflow-x: hidden !important;
     }

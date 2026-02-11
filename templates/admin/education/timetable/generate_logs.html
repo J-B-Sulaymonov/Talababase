@@ -1,0 +1,162 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+    <style>
+        .generate-container {
+            max-width: 600px;
+            padding: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px auto;
+        }
+        .info-box {
+            background-color: #e8f4f8;
+            border-left: 5px solid #417690;
+            padding: 15px;
+            margin-bottom: 25px;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .form-row {
+            margin-bottom: 20px;
+        }
+        .form-row label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+        /* Select va Inputlar uchun stil */
+        .form-row select,
+        .form-row input[type="date"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        .form-row select:focus,
+        .form-row input:focus {
+            border-color: #417690;
+            outline: none;
+        }
+
+        .submit-row {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* O'ng tomonga taqash */
+        }
+        .btn-primary {
+            background: #417690;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .btn-primary:hover {
+            background: #2a5266;
+        }
+        .btn-cancel {
+            margin-right: 15px;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+        .errorlist {
+            color: #ba2121;
+            margin-top: 5px;
+            padding-left: 0;
+            list-style: none;
+            font-size: 13px;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Bosh sahifa' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; {% trans "Jurnal Generatsiya" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="generate-container">
+    <h1 style="margin-top: 0; margin-bottom: 20px;">{% trans "Semestr uchun dars jurnallarini yaratish" %}</h1>
+
+    <div class="info-box">
+        <p><strong>{% trans "Diqqat!" %}</strong> {% trans "Siz tanlagan O'quv yili va Semestr uchun dars jurnallari shakllantiriladi." %}</p>
+        <p style="margin-top: 10px;">
+            {% trans "Tizim faqat tanlangan parametrlarga mos keluvchi jadvallarni qidiradi. Eski jadvallar (boshqa yil yoki semestr) ta'sir qilmaydi." %}
+        </p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="errornote">
+                {% blocktrans count counter=form.errors.items|length %}Quyidagi xatolarni to'g'irlang.{% plural %}Quyidagi xatolarni to'g'irlang.{% endblocktrans %}
+            </div>
+        {% endif %}
+
+        {# 1. O'quv Yili #}
+        <div class="form-row">
+            <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}:</label>
+            {{ form.academic_year }}
+            {{ form.academic_year.errors }}
+        </div>
+
+        {# 2. Semestr #}
+        <div class="form-row">
+            <label for="{{ form.semester.id_for_label }}">{{ form.semester.label }}:</label>
+            {{ form.semester }}
+            {{ form.semester.errors }}
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+        {# 3. Boshlanish Sanasi #}
+        <div class="form-row">
+            <label for="{{ form.start_date.id_for_label }}">{{ form.start_date.label }}:</label>
+            {{ form.start_date }}
+            {{ form.start_date.errors }}
+            <span class="helptext" style="font-size: 12px; color: #777;">Masalan: Semestrning birinchi kuni (02.09.2026)</span>
+        </div>
+
+        {# 4. Tugash Sanasi #}
+        <div class="form-row">
+            <label for="{{ form.end_date.id_for_label }}">{{ form.end_date.label }}:</label>
+            {{ form.end_date }}
+            {{ form.end_date.errors }}
+            <span class="helptext" style="font-size: 12px; color: #777;">Masalan: Semestrning oxirgi kuni (31.12.2026)</span>
+        </div>
+
+        <div class="submit-row">
+            <a href="../" class="btn-cancel">{% trans "Bekor qilish" %}</a>
+            <input type="submit" value="{% trans 'Generatsiyani Boshlash' %}" class="btn-primary">
+        </div>
+    </form>
+</div>
+{% endblock %}

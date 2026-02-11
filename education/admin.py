@@ -1,3 +1,9 @@
+from .models import TimeTable, ScheduleError, LessonLog
+from education.services.generator import ScheduleGeneratorService
+from collections import defaultdict
+from django.shortcuts import render, redirect
+from django.contrib import messages
+import datetime
 import xlsxwriter
 from django.contrib import admin
 from django.http import JsonResponse, HttpResponse
@@ -8,10 +14,50 @@ from django.db.models import Sum, Q
 from django.utils.translation import gettext_lazy as _
 from django import forms
 import io
-# Importlar (Sizning loyihangizga moslab)
 from students.models import Group, AcademicYear
-from .models import EducationPlan, PlanSubject, Workload, Stream, SubGroup
+from .models import EducationPlan, PlanSubject, Workload, Stream, SubGroup, Room
+from .services.main import generate_semester_logs
 
+
+class SemesterDateForm(forms.Form):
+    academic_year = forms.ModelChoiceField(
+        queryset=AcademicYear.objects.all().order_by('-name'),
+        label="O'quv yili",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    semester = forms.ChoiceField(
+        choices=[
+            ('autumn', 'Kuzgi (1, 3, 5...)'),
+            ('spring', 'Bahorgi (2, 4, 6...)'),
+        ],
+        label="Mavsum (Semestr)",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    start_date = forms.DateField(
+        label="Boshlanish sanasi",
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'vDateField'})
+    )
+    end_date = forms.DateField(
+        label="Tugash sanasi",
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'vDateField'})
+    )
+
+
+# -----------------------------------------------------------------------------
+# 2. YANGI ADMIN: LESSON LOG (JURNAL)
+# -----------------------------------------------------------------------------
+@admin.register(LessonLog)
+class LessonLogAdmin(admin.ModelAdmin):
+    list_display = ('date', 'group', 'subject', 'planned_teacher', 'actual_teacher', 'status', 'is_confirmed')
+    list_filter = ('date', 'status', 'is_confirmed', 'group')
+    # O'quv bo'limi ro'yxatni o'zidan turib o'zgartira olishi uchun
+    list_editable = ('actual_teacher', 'status', 'is_confirmed')
+    search_fields = ('group__name', 'subject__name', 'actual_teacher__first_name')
+    date_hierarchy = 'date'
+
+    # O'quv bo'limi yangi qo'sholmasin, faqat generatsiya qilinganini tahrirlasin
+    def has_add_permission(self, request):
+        return request.user.is_superuser
 
 @admin.register(SubGroup)
 class SubGroupAdmin(admin.ModelAdmin):
@@ -651,22 +697,23 @@ class WorkloadAdmin(admin.ModelAdmin):
 
     get_group_names.short_description = "Guruhlar"
 
-    # --- URLS ---
+    # --- URLS (O'zgartirildi: Excel export qo'shildi) ---
     def get_urls(self):
         from django.urls import path
         urls = super().get_urls()
         my_urls = [
             path('general-report/', self.admin_site.admin_view(self.general_report_view),
                  name='workload_general_report'),
+            # YANGI: Excel export URL
+            path('general-report/export/', self.admin_site.admin_view(self.export_workload_excel),
+                 name='workload_export_excel'),
             path('ajax/get-plans/', self.admin_site.admin_view(self.get_plans_view), name='ajax_get_plans'),
             path('ajax/get-groups/', self.admin_site.admin_view(self.get_groups_view), name='ajax_get_groups'),
         ]
         return my_urls + urls
 
     def general_report_view(self, request):
-        # ------------------------------------------------------------
-        # 1. FILTRLASH VA AKTIV YIL
-        # ------------------------------------------------------------
+        # Bu funksiya o'zgarishsiz qoldi (Sizning kodingizdagi kabi)
         active_year_obj = AcademicYear.objects.filter(is_active=True).first()
         if not active_year_obj:
             active_year_obj = AcademicYear.objects.order_by('-name').first()
@@ -685,9 +732,6 @@ class WorkloadAdmin(admin.ModelAdmin):
         })
         filter_form.fields['academic_year'].queryset = AcademicYear.objects.all().order_by('-name')
 
-        # ------------------------------------------------------------
-        # 2. QUERYSET
-        # ------------------------------------------------------------
         workloads = Workload.objects.all().select_related('subject').prefetch_related(
             'groups', 'groups__specialty',
             'plan_subjects', 'plan_subjects__education_plan',
@@ -704,11 +748,7 @@ class WorkloadAdmin(admin.ModelAdmin):
         workloads = workloads.distinct()
         report_data = []
 
-        # ------------------------------------------------------------
-        # 3. HISOBLASH LOGIKASI
-        # ------------------------------------------------------------
         for load in workloads:
-            # A. Rejani aniqlash (Vakil reja)
             representative_plans = {}
             for ps in load.plan_subjects.all():
                 if ps.semester not in representative_plans:
@@ -720,33 +760,22 @@ class WorkloadAdmin(admin.ModelAdmin):
             first_plan = list(representative_plans.values())[0]
             course_num = first_plan.education_plan.course
 
-            # B. PATOKLARNI GURUHLASH (O'qituvchi + Yuklama turi bo'yicha)
-            # Key: (teacher_obj, employment_type_str)
-            # Misol: (TeacherA, 'permanent'), (TeacherA, 'hourly'), (None, None)
             streams_map = {}
             all_streams = load.streams.all()
 
             if not all_streams.exists():
-                # Vakant (Patok yo'q)
                 streams_map[(None, None)] = []
             else:
                 for stream in all_streams:
                     t = stream.teacher
-                    # Agar o'qituvchi bo'lsa turini olamiz, bo'lmasa None
                     e_type = stream.employment_type if t else None
-
                     key = (t, e_type)
-
                     if key not in streams_map:
                         streams_map[key] = []
                     streams_map[key].append(stream)
 
-            # C. HAR BIR GURUH UCHUN ALOHIDA QATOR
             for (teacher, emp_type), streams in streams_map.items():
-
-                # O'qituvchi ismini shakllantirish
                 if teacher:
-                    # Ism + (Shtat/Soatbay)
                     type_display = dict(Stream.EMPLOYMENT_TYPE_CHOICES).get(emp_type, emp_type)
                     if emp_type == 'permanent':
                         short_type = "Shtat"
@@ -754,19 +783,16 @@ class WorkloadAdmin(admin.ModelAdmin):
                         short_type = "Soatbay"
                     else:
                         short_type = type_display
-
                     teacher_name = f"{teacher} ({short_type})"
                 else:
                     teacher_name = "Vakant"
 
-                # Guruhlar ro'yxati
                 row_groups_set = set()
                 if streams:
                     for s in streams:
                         for g in s.groups.all(): row_groups_set.add(g)
                         for sg in s.sub_groups.all(): row_groups_set.add(sg.group)
                 else:
-                    # Agar VAKANT (patok yo'q) bo'lsa, Workload dagi guruhlarni olamiz
                     for g in load.groups.all(): row_groups_set.add(g)
 
                 sorted_groups = sorted(list(row_groups_set), key=lambda x: x.name)
@@ -775,13 +801,11 @@ class WorkloadAdmin(admin.ModelAdmin):
                 total_students = sum([getattr(g, 'student_count', 0) for g in row_groups_set])
                 group_count_val = len(row_groups_set)
 
-                # --- PATOKLAR SONI ---
                 lec_count = len([s for s in streams if s.lesson_type == 'lecture'])
                 prac_count = len([s for s in streams if s.lesson_type == 'practice'])
                 lab_count = len([s for s in streams if s.lesson_type == 'lab'])
                 sem_count = len([s for s in streams if s.lesson_type == 'seminar'])
 
-                # Vakant bo'lsa (Streamsiz) 1 deb olamiz
                 is_vacant_row = (teacher is None) and (not streams)
                 if is_vacant_row:
                     lec_count = 1
@@ -789,7 +813,6 @@ class WorkloadAdmin(admin.ModelAdmin):
                     lab_count = 1
                     sem_count = 1
 
-                # Semestrlar bo'yicha lug'at
                 kuzgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
                          'lab_r': '', 'lab_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
                 bahorgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
@@ -799,17 +822,13 @@ class WorkloadAdmin(admin.ModelAdmin):
                     is_autumn = (sem % 2 != 0)
                     target = kuzgi if is_autumn else bahorgi
 
-                    # Hisoblash funksiyasi (Oldingi Amaliyotchi/Ma'ruza fixi bilan)
                     def set_hours(plan_hour, stream_count, field_name):
-                        # Reja bor bo'lsa VA (Patok bor bo'lsa YOKI Vakant bo'lsa)
                         if (plan_hour and plan_hour > 0) and (stream_count > 0 or is_vacant_row):
                             target[f'{field_name}_r'] = plan_hour
-
                             if is_vacant_row:
                                 total_calc = plan_hour
                             else:
                                 total_calc = plan_hour * stream_count
-
                             target[f'{field_name}_j'] = total_calc
                             return total_calc
                         return 0
@@ -833,21 +852,305 @@ class WorkloadAdmin(admin.ModelAdmin):
                     'kuzgi': kuzgi,
                     'bahorgi': bahorgi,
                     'year_total': year_total,
-                    'teacher': teacher_name  # Bu yerda endi "(Shtat)" yoki "(Soatbay)" qo'shilgan
+                    'teacher': teacher_name
                 })
 
-        # 4. Sortirovka
         report_data.sort(key=lambda x: (x['subject'], x['teacher']))
 
         context = self.admin_site.each_context(request)
-
-        # 2. O'zimizning hisobot ma'lumotlarini unga qo'shamiz
         context.update({
             'report_data': report_data,
             'filter_form': filter_form,
             'title': "Professor-o'qituvchilarning o'quv yuklamasi hajmlari"
         })
         return render(request, 'admin/workload_report.html', context)
+
+    # --- YANGI EXCEL EXPORT FUNKSIYASI ---
+    def export_workload_excel(self, request):
+        # 1. MA'LUMOTLARNI YIG'ISH (general_report_view logikasi bilan aynan bir xil)
+        # --------------------------------------------------------------------------
+        active_year_obj = AcademicYear.objects.filter(is_active=True).first()
+        if not active_year_obj:
+            active_year_obj = AcademicYear.objects.order_by('-name').first()
+
+        selected_year_id = request.GET.get('academic_year')
+        if selected_year_id is None and active_year_obj:
+            selected_year_id = active_year_obj.id
+
+        selected_edu_form = request.GET.get('education_form', 'kunduzgi')
+        selected_course = request.GET.get('course', '')
+
+        # QuerySet
+        workloads = Workload.objects.all().select_related('subject').prefetch_related(
+            'groups', 'groups__specialty',
+            'plan_subjects', 'plan_subjects__education_plan',
+            'streams', 'streams__groups', 'streams__sub_groups', 'streams__teacher'
+        )
+
+        if selected_year_id:
+            workloads = workloads.filter(plan_subjects__education_plan__academic_year_id=selected_year_id)
+        if selected_edu_form:
+            workloads = workloads.filter(plan_subjects__education_plan__education_form=selected_edu_form)
+        if selected_course:
+            workloads = workloads.filter(plan_subjects__education_plan__course=selected_course)
+
+        workloads = workloads.distinct()
+        report_data = []
+
+        # Ma'lumotlarni qayta ishlash
+        for load in workloads:
+            representative_plans = {}
+            for ps in load.plan_subjects.all():
+                if ps.semester not in representative_plans:
+                    representative_plans[ps.semester] = ps
+
+            if not representative_plans:
+                continue
+
+            first_plan = list(representative_plans.values())[0]
+            course_num = first_plan.education_plan.course
+
+            streams_map = {}
+            all_streams = load.streams.all()
+
+            if not all_streams.exists():
+                streams_map[(None, None)] = []
+            else:
+                for stream in all_streams:
+                    t = stream.teacher
+                    e_type = stream.employment_type if t else None
+                    key = (t, e_type)
+                    if key not in streams_map:
+                        streams_map[key] = []
+                    streams_map[key].append(stream)
+
+            for (teacher, emp_type), streams in streams_map.items():
+                if teacher:
+                    type_display = dict(Stream.EMPLOYMENT_TYPE_CHOICES).get(emp_type, emp_type)
+                    short_type = "Shtat" if emp_type == 'permanent' else (
+                        "Soatbay" if emp_type == 'hourly' else type_display)
+                    teacher_name = f"{teacher} ({short_type})"
+                else:
+                    teacher_name = "Vakant"
+
+                row_groups_set = set()
+                if streams:
+                    for s in streams:
+                        for g in s.groups.all(): row_groups_set.add(g)
+                        for sg in s.sub_groups.all(): row_groups_set.add(sg.group)
+                else:
+                    for g in load.groups.all(): row_groups_set.add(g)
+
+                sorted_groups = sorted(list(row_groups_set), key=lambda x: x.name)
+                group_names = ", ".join([g.name for g in sorted_groups])
+                specialties = ", ".join(list(set([g.specialty.name for g in row_groups_set if g.specialty])))
+                total_students = sum([getattr(g, 'student_count', 0) for g in row_groups_set])
+                group_count_val = len(row_groups_set)
+
+                lec_count = len([s for s in streams if s.lesson_type == 'lecture'])
+                prac_count = len([s for s in streams if s.lesson_type == 'practice'])
+                lab_count = len([s for s in streams if s.lesson_type == 'lab'])
+                sem_count = len([s for s in streams if s.lesson_type == 'seminar'])
+
+                is_vacant_row = (teacher is None) and (not streams)
+                if is_vacant_row:
+                    lec_count = 1;
+                    prac_count = 1;
+                    lab_count = 1;
+                    sem_count = 1
+
+                kuzgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
+                         'lab_r': '', 'lab_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
+                bahorgi = {'lec_r': '', 'lec_j': '', 'prac_r': '', 'prac_j': '',
+                           'lab_r': '', 'lab_j': '', 'sem_r': '', 'sem_j': '', 'total': 0}
+
+                for sem, ps in representative_plans.items():
+                    is_autumn = (sem % 2 != 0)
+                    target = kuzgi if is_autumn else bahorgi
+
+                    def set_hours(plan_hour, stream_count, field_name):
+                        if (plan_hour and plan_hour > 0) and (stream_count > 0 or is_vacant_row):
+                            target[f'{field_name}_r'] = plan_hour
+                            total_calc = plan_hour if is_vacant_row else plan_hour * stream_count
+                            target[f'{field_name}_j'] = total_calc
+                            return total_calc
+                        return 0
+
+                    t_lec = set_hours(ps.lecture_hours, lec_count, 'lec')
+                    t_prac = set_hours(ps.practice_hours, prac_count, 'prac')
+                    t_lab = set_hours(ps.lab_hours, lab_count, 'lab')
+                    t_sem = set_hours(ps.seminar_hours, sem_count, 'sem')
+                    target['total'] += (t_lec + t_prac + t_lab + t_sem)
+
+                year_total = kuzgi['total'] + bahorgi['total']
+                report_data.append({
+                    'subject': load.subject.name, 'specialties': specialties, 'groups': group_names,
+                    'course': course_num, 'students': total_students, 'group_count': group_count_val,
+                    'kuzgi': kuzgi, 'bahorgi': bahorgi, 'year_total': year_total, 'teacher': teacher_name
+                })
+
+        report_data.sort(key=lambda x: (x['subject'], x['teacher']))
+
+        # 2. EXCEL GENERATSIYA
+        # --------------------------------------------------------------------------
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet("Yuklama")
+
+        # Formatlar
+        fmt_header = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'text_wrap': True, 'font_size': 9})
+        fmt_vertical = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'rotation': 90, 'text_wrap': True,
+             'font_size': 9})
+        fmt_center = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'font_size': 9})
+        fmt_left = workbook.add_format(
+            {'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True, 'font_size': 9, 'bold': True})
+
+        # Rangli formatlar (CSS dan olingan)
+        fmt_kuzgi = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#d99694', 'font_size': 9})
+        fmt_bahorgi = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#dce6f1', 'font_size': 9})
+        fmt_yellow = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#ffff00', 'font_size': 9})
+        fmt_pink = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#e6b8b7', 'font_size': 9})
+        fmt_purple = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#ccc1d9', 'font_size': 9,
+             'text_wrap': True})
+        fmt_blue_light = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bold': True, 'bg_color': '#b8cce4', 'font_size': 9})
+        fmt_row_num = workbook.add_format(
+            {'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#f2f2f2', 'font_color': '#555555',
+             'font_size': 8})
+
+        # Sarlavha ma'lumotlari
+        title = "Professor-o'qituvchilarning o'quv yuklamasi hajmlari"
+        worksheet.merge_range(0, 0, 0, 26, title,
+                              workbook.add_format({'bold': True, 'font_size': 14, 'align': 'center'}))
+
+        # Filter info
+        info_text = f"O'quv yili: {AcademicYear.objects.filter(id=selected_year_id).first() if selected_year_id else 'Barchasi'} | " \
+                    f"Ta'lim shakli: {selected_edu_form} | Kurs: {selected_course if selected_course else 'Barchasi'}"
+        worksheet.merge_range(1, 0, 1, 26, info_text, workbook.add_format({'align': 'center', 'font_size': 10}))
+
+        # JADVAL HEADER
+        # 3-qator (Index 3) - Asosiy sarlavhalar
+        worksheet.merge_range(3, 0, 5, 0, "№", fmt_header)
+        worksheet.merge_range(3, 1, 5, 1, "Fanlar nomi", fmt_header)
+        worksheet.merge_range(3, 2, 5, 2, "Ta'lim yo'nalishlari", fmt_header)
+        worksheet.merge_range(3, 3, 5, 3, "Guruh raqami", fmt_header)
+        worksheet.merge_range(3, 4, 5, 4, "Kurs", fmt_vertical)
+        worksheet.merge_range(3, 5, 5, 5, "Talabalar\nsoni", fmt_vertical)
+        worksheet.merge_range(3, 6, 5, 6, "Guruhlar\nsoni", fmt_vertical)
+
+        worksheet.merge_range(3, 7, 3, 15, "KUZGI SEMESTR", fmt_kuzgi)
+        worksheet.merge_range(3, 16, 3, 24, "BAHORGI SEMESTR", fmt_bahorgi)
+
+        worksheet.merge_range(3, 25, 5, 25, "JAMI\nYILLIK\nYUKLAMA", fmt_purple)
+        worksheet.merge_range(3, 26, 5, 26, "Professor - o'qituvchi F.I.Sh", fmt_header)
+
+        # 4-qator (Kuzgi/Bahorgi ichki sarlavhalar)
+        sub_headers = ["Ma'ruza", "Amaliy", "Laboratoriya", "Seminar"]
+
+        # Kuzgi
+        col_idx = 7
+        for h in sub_headers:
+            worksheet.merge_range(4, col_idx, 4, col_idx + 1, h, fmt_header)
+            col_idx += 2
+        worksheet.merge_range(4, 15, 5, 15, "Jami", fmt_pink)
+
+        # Bahorgi
+        col_idx = 16
+        for h in sub_headers:
+            worksheet.merge_range(4, col_idx, 4, col_idx + 1, h, fmt_header)
+            col_idx += 2
+        worksheet.merge_range(4, 24, 5, 24, "Jami", fmt_blue_light)
+
+        # 5-qator (reja/jami)
+        col_idx = 7
+        for _ in range(4):  # Kuzgi
+            worksheet.write(5, col_idx, "reja", fmt_header)
+            worksheet.write(5, col_idx + 1, "jami", fmt_yellow)
+            col_idx += 2
+
+        col_idx = 16
+        for _ in range(4):  # Bahorgi
+            worksheet.write(5, col_idx, "reja", fmt_header)
+            worksheet.write(5, col_idx + 1, "jami", fmt_yellow)
+            col_idx += 2
+
+        # 6-qator (Raqamlar)
+        for i in range(27):
+            worksheet.write(6, i, i + 1, fmt_row_num)
+
+            # Columns width (Ustun kengliklari)
+            worksheet.set_column(0, 0, 4)  # No
+            worksheet.set_column(1, 1, 30)  # Fan
+            worksheet.set_column(2, 2, 20)  # Yo'nalish
+            worksheet.set_column(3, 3, 15)  # Guruh
+            worksheet.set_column(4, 6, 5)  # Kurs, Talaba, Guruh soni
+            worksheet.set_column(7, 24, 4)
+            worksheet.set_column(11, 12, 5)
+            worksheet.set_column(20, 21, 5)
+            worksheet.set_column(15, 15, 6)  # Kuzgi Jami
+            worksheet.set_column(24, 24, 6)  # Bahorgi Jami
+            worksheet.set_column(25, 25, 8)  # Yillik
+            worksheet.set_column(26, 26, 25)  # O'qituvchi
+
+        # MA'LUMOTLARNI YOZISH
+        row = 7
+        for idx, item in enumerate(report_data, 1):
+            worksheet.write(row, 0, idx, fmt_center)
+            worksheet.write(row, 1, item['subject'], fmt_left)
+            worksheet.write(row, 2, item['specialties'], workbook.add_format(
+                {'border': 1, 'font_size': 8, 'text_wrap': True, 'align': 'center', 'valign': 'vcenter'}))
+            worksheet.write(row, 3, item['groups'], workbook.add_format(
+                {'border': 1, 'font_size': 8, 'text_wrap': True, 'align': 'center', 'valign': 'vcenter'}))
+            worksheet.write(row, 4, item['course'], fmt_center)
+            worksheet.write(row, 5, item['students'], fmt_center)
+            worksheet.write(row, 6, item['group_count'], fmt_center)
+
+            # Kuzgi
+            k = item['kuzgi']
+            worksheet.write(row, 7, k['lec_r'], fmt_center)
+            worksheet.write(row, 8, k['lec_j'], fmt_yellow)
+            worksheet.write(row, 9, k['prac_r'], fmt_center)
+            worksheet.write(row, 10, k['prac_j'], fmt_yellow)
+            worksheet.write(row, 11, k['lab_r'], fmt_center)
+            worksheet.write(row, 12, k['lab_j'], fmt_yellow)
+            worksheet.write(row, 13, k['sem_r'], fmt_center)
+            worksheet.write(row, 14, k['sem_j'], fmt_yellow)
+            worksheet.write(row, 15, k['total'], fmt_pink)
+
+            # Bahorgi
+            b = item['bahorgi']
+            worksheet.write(row, 16, b['lec_r'], fmt_center)
+            worksheet.write(row, 17, b['lec_j'], fmt_yellow)
+            worksheet.write(row, 18, b['prac_r'], fmt_center)
+            worksheet.write(row, 19, b['prac_j'], fmt_yellow)
+            worksheet.write(row, 20, b['lab_r'], fmt_center)
+            worksheet.write(row, 21, b['lab_j'], fmt_yellow)
+            worksheet.write(row, 22, b['sem_r'], fmt_center)
+            worksheet.write(row, 23, b['sem_j'], fmt_yellow)
+            worksheet.write(row, 24, b['total'], fmt_blue_light)
+
+            # Jami
+            worksheet.write(row, 25, item['year_total'], fmt_purple)
+            worksheet.write(row, 26, item['teacher'], fmt_left)
+
+            row += 1
+
+        workbook.close()
+        output.seek(0)
+
+        filename = f"Yuklama_{datetime.date.today()}.xlsx"
+        response = HttpResponse(output,
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
     # --- AJAX METHODS (O'zgarishsiz) ---
     def get_plans_view(self, request):
@@ -879,3 +1182,206 @@ class WorkloadAdmin(admin.ModelAdmin):
                     for g in groups:
                         results.append({'id': str(g.id), 'text': g.name})
         return JsonResponse({'results': results})
+
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    # Ro'yxatda ko'rinadigan ustunlar
+    list_display = ('name', 'room_type', 'capacity', 'is_active')
+
+    # Ro'yxatning o'zidan tahrirlash imkoniyati (juda qulay)
+    list_editable = ('capacity', 'is_active')
+
+    # O'ng tomondagi filtrlar
+    list_filter = ('room_type', 'is_active')
+
+    # Qidiruv maydoni (Xona raqami bo'yicha)
+    search_fields = ('name',)
+
+    # Sahifalash (har bir betda 20 tadan)
+    list_per_page = 20
+
+    # Formani chiroyli guruhlash
+    fieldsets = (
+        ('Asosiy ma\'lumotlar', {
+            'fields': ('name', 'room_type', 'capacity', 'is_active',)
+        }),
+
+    )
+
+    # Qo'shimcha funksiyalar (Actions)
+    actions = ['make_inactive', 'make_active']
+
+    @admin.action(description="Tanlangan xonalarni yopish (Noaktiv qilish)")
+    def make_inactive(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"{updated} ta xona muvaffaqiyatli yopildi (Noaktiv qilindi).")
+
+    @admin.action(description="Tanlangan xonalarni ochish (Aktiv qilish)")
+    def make_active(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"{updated} ta xona muvaffaqiyatli aktivlashtirildi.")
+
+
+@admin.register(TimeTable)
+class TimeTableAdmin(admin.ModelAdmin):
+    list_display = ('weekday', 'timeslot', 'get_target', 'subject', 'teacher', 'room', 'semester')
+    list_filter = ('academic_year', 'semester', 'weekday', 'teacher', 'room')
+    change_list_template = "admin/education/timetable/change_list.html"  # Tugma uchun
+
+    def get_target(self, obj):
+        return obj.stream.name if obj.stream else (obj.group.name if obj.group else "-")
+    get_target.short_description = "Guruh/Patok"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            # ESKI GENERATSIYA (O'zgartirilmadi)
+            path('generate/', self.admin_site.admin_view(self.generate_view), name='education_timetable_generate'),
+            # YANGI LOG GENERATSIYA
+            path('generate-logs/', self.admin_site.admin_view(self.generate_logs_view), name='education_timetable_generate_logs'),
+        ]
+        return custom_urls + urls
+
+    # --- YANGI METOD: LOGLARNI GENERATSIYA QILISH ---
+    def generate_logs_view(self, request):
+        if request.method == 'POST':
+            form = SemesterDateForm(request.POST)
+            if form.is_valid():
+                # Formadan ma'lumotlarni olamiz
+                year_obj = form.cleaned_data['academic_year']
+                sem = form.cleaned_data['semester']
+                start = form.cleaned_data['start_date']
+                end = form.cleaned_data['end_date']
+
+                try:
+                    # Servisga yil va semestrni ham yuboramiz
+                    count = generate_semester_logs(
+                        start_date=start,
+                        end_date=end,
+                        academic_year_id=year_obj.id,
+                        semester=sem
+                    )
+
+                    if count > 0:
+                        self.message_user(request,
+                                          f"Muvaffaqiyatli! {year_obj} - {sem} semestri uchun {count} ta dars jurnali yaratildi.",
+                                          messages.SUCCESS)
+                    else:
+                        self.message_user(request,
+                                          "Jurnal yaratilmadi. Tanlangan yil va semestr uchun jadval topilmadi yoki limit to'lgan.",
+                                          messages.WARNING)
+                except Exception as e:
+                    self.message_user(request, f"Xatolik yuz berdi: {str(e)}", messages.ERROR)
+
+                return redirect('admin:education_timetable_changelist')
+        else:
+            # Get so'rovida oxirgi yil va semestrni default qilib qo'yishimiz mumkin
+            last_year = AcademicYear.objects.order_by('-name').first()
+            form = SemesterDateForm(initial={'academic_year': last_year, 'semester': 'autumn'})
+
+        context = {
+            'title': "Semestr uchun jurnalni to'ldirish",
+            'form': form,
+            'opts': self.model._meta,
+            'app_label': self.model._meta.app_label,
+            'site_header': self.admin_site.site_header,
+            'site_title': self.admin_site.site_title,
+            'has_permission': True,
+        }
+        return render(request, "admin/education/timetable/generate_logs.html", context)
+
+
+    # --- ESKI GENERATSIYA KODI (O'ZGARISHSIZ) ---
+    def generate_view(self, request):
+        if request.method == 'POST':
+            action = request.POST.get('action')
+            year_id = request.POST.get('academic_year')
+            season = request.POST.get('season')
+
+            s1_raw = request.POST.getlist('shift1_levels')
+            s2_raw = request.POST.getlist('shift2_levels')
+            shift1 = [int(x) for x in s1_raw] if s1_raw else []
+            shift2 = [int(x) for x in s2_raw] if s2_raw else []
+
+            service = ScheduleGeneratorService(year_id, season, shift1, shift2)
+
+            if action == 'save':
+                service.generate(dry_run=False)
+                self.message_user(request, "Dars jadvali muvaffaqiyatli saqlandi!", messages.SUCCESS)
+                return redirect('admin:education_timetable_changelist')
+
+            schedule_map, errors = service.generate(dry_run=True)
+
+            # --- GURUHLASH LOGIKASI ---
+            grouped_data = {}
+            all_group_ids = set()
+            for item in schedule_map:
+                all_group_ids.update(item['group_ids'])
+
+            groups_map = {g.id: g for g in Group.objects.filter(id__in=all_group_ids).select_related('specialty')}
+
+            for item in schedule_map:
+                c_level = item.get('course_level', 1)
+                for gr_id in item['group_ids']:
+                    if gr_id not in grouped_data:
+                        group = groups_map.get(gr_id)
+                        if not group: continue
+                        grouped_data[gr_id] = {
+                            'group': group,
+                            'course_level': c_level,
+                            'grid': defaultdict(lambda: defaultdict(list))
+                        }
+                    grouped_data[gr_id]['grid'][item['timeslot_id']][item['weekday_id']].append(item)
+
+            final_groups_list = []
+            for g_id, data in grouped_data.items():
+                data['grid'] = {k: dict(v) for k, v in data['grid'].items()}
+                final_groups_list.append(data)
+
+            final_groups_list.sort(key=lambda x: (x['course_level'], x['group'].name))
+
+            raw_streams = service.fetch_streams()
+            total_streams = len(raw_streams)
+            unique_placed = len(set(item['stream'].id for item in schedule_map))
+            success_percent = int((unique_placed / total_streams) * 100) if total_streams > 0 else 0
+
+            context = {
+                'title': "Jadval Generatsiyasi (Simulyatsiya)",
+                'academic_years': AcademicYear.objects.all(),
+                'selected_year': int(year_id) if year_id else None,
+                'selected_season': season,
+                'selected_shift1': shift1,
+                'selected_shift2': shift2,
+                'preview_mode': True,
+                'grouped_schedules': final_groups_list,
+                'errors': errors,
+                'weekdays': service.weekdays,
+                'timeslots': service.timeslots,
+                'total_streams': total_streams,
+                'success_percent': success_percent,
+                'opts': self.model._meta,
+                'has_view_permission': self.has_view_permission(request),
+                'site_header': self.admin_site.site_header,
+                'site_title': self.admin_site.site_title,
+            }
+            return render(request, "admin/education/timetable/generate.html", context)
+
+        context = {
+            'title': "Avtomatik Jadval Generatori",
+            'academic_years': AcademicYear.objects.all(),
+            'selected_season': 'autumn',
+            'selected_shift1': [1, 4],
+            'selected_shift2': [2, 3],
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request),
+            'site_header': self.admin_site.site_header,
+            'site_title': self.admin_site.site_title,
+        }
+        return render(request, "admin/education/timetable/generate.html", context)
+
+
+@admin.register(ScheduleError)
+class ScheduleErrorAdmin(admin.ModelAdmin):
+    list_display = ('workload', 'reason', 'created_at')
+    list_filter = ('academic_year', 'reason')

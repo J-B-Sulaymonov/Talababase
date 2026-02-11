@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
-
+from django.utils import timezone
 from kadrlar.models import Teacher
 from students.models import Specialty, AcademicYear, Subject, Group
 
@@ -117,10 +117,6 @@ class PlanSubject(models.Model):
 
     def __str__(self):
         return f"{self.education_plan} {self.subject} ({self.semester}-semestr)"
-
-
-
-
 
 
 class Workload(models.Model):
@@ -279,4 +275,168 @@ class Stream(models.Model):
                 raise ValidationError({
                     'employment_type': f"O'qituvchi {self.teacher} 'Soatbay' ishlamaydi. Iltimos, 'Asosiy (Shtat)'ni tanlang yoki o'qituvchi profilini o'zgartiring."
                 })
+
+
+class Room(models.Model):
+    """
+    Auditoriyalar fondi.
+    """
+    ROOM_TYPES = (
+        ('lecture', 'Ma\'ruza zali'),
+        ('practice', 'Amaliyot xonasi'),
+        ('lab', 'Laboratoriya'),
+        ('computer', 'Kompyuter xonasi'),
+        ('sport', 'Sport zal'),
+    )
+
+    name = models.CharField(max_length=50, unique=True, verbose_name="Xona raqami/nomi")
+    capacity = models.PositiveIntegerField(default=0, verbose_name="Sig'imi")
+    room_type = models.CharField(max_length=20, choices=ROOM_TYPES, default='practice', verbose_name="Xona turi")
+    is_active = models.BooleanField(default=True, verbose_name="Holati")
+
+    def __str__(self):
+        return f"{self.name} ({self.room_type}) - {self.capacity} o'rin"
+
+    class Meta:
+        verbose_name = "Auditoriya"
+        verbose_name_plural = "Auditoriyalar"
+
+
+class TimeTable(models.Model):
+    SEMESTER_SEASON = (
+        ('autumn', 'Kuzgi (Toq semestrlar)'),
+        ('spring', 'Bahorgi (Juft semestrlar)'),
+    )
+    academic_year = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE)
+    semester = models.CharField(max_length=10, choices=SEMESTER_SEASON, default='autumn')
+    weekday = models.ForeignKey('kadrlar.Weekday', on_delete=models.CASCADE)
+    timeslot = models.ForeignKey('kadrlar.TimeSlot', on_delete=models.CASCADE)
+
+    # Dars ma'lumotlari
+    group = models.ForeignKey('students.Group', on_delete=models.CASCADE, null=True, blank=True)
+    stream = models.ForeignKey('education.Stream', on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey('students.Subject', on_delete=models.CASCADE)
+    teacher = models.ForeignKey('kadrlar.Teacher', on_delete=models.CASCADE)
+    room = models.ForeignKey('education.Room', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Xona")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['weekday', 'timeslot']
+        verbose_name = "Dars jadvali"
+        verbose_name_plural = "Dars jadvallari"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['academic_year', 'weekday', 'timeslot', 'teacher'],
+                name='unique_teacher_slot'
+            ),
+        ]
+
+    def __str__(self):
+        target = self.stream.name if self.stream else (self.group.name if self.group else "Noma'lum")
+        return f"{self.weekday} | {self.timeslot} | {target} | {self.subject}"
+
+
+class LessonLog(models.Model):
+    """
+    Har bir darsning o'tilganligi haqida haqiqiy fakt.
+    TimeTable dan generatsiya qilinadi, lekin o'zgartirilishi mumkin.
+    """
+    STATUS_CHOICES = [
+        ('scheduled', 'Rejalashtirilgan'),  # Hali o'tilmagan
+        ('held', "O'tildi (Tasdiqlandi)"),  # O'qituvchi kirdi va o'tdi
+        ('canceled', 'Dars bo\'lmadi'),  # Bayram yoki boshqa sabab
+        ('replaced', 'Zamena (Almashtirildi)'),  # Boshqa o'qituvchi o'tdi
+    ]
+
+    # Qaysi jadval asosida yaratildi? (Null bo'lishi mumkin, agar qo'shimcha dars bo'lsa)
+    timetable = models.ForeignKey(TimeTable, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs',
+                                  verbose_name="Jadval asosi")
+
+    date = models.DateField(default=timezone.now, verbose_name="Sana")
+
+    # Guruh va Fan (TimeTabledan ko'chirib olinadi, qidiruv tez bo'lishi uchun)
+    group = models.ForeignKey('students.Group', on_delete=models.CASCADE, verbose_name="Guruh")
+    subject = models.ForeignKey('students.Subject', on_delete=models.CASCADE, verbose_name="Fan")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Xona")
+
+    # O'qituvchilar: Rejadagi va Haqiqiy
+    planned_teacher = models.ForeignKey(
+        'kadrlar.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='planned_lessons',
+        verbose_name="Rejadagi o'qituvchi"
+    )
+
+    actual_teacher = models.ForeignKey(
+        'kadrlar.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='actual_lessons',
+        verbose_name="Amalda o'tgan o'qituvchi"
+    )
+
+    # Moliyaviy hisob-kitob uchun soat
+    hours = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=2.00,
+        verbose_name="Soat miqdori (Moliya uchun)"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='scheduled',
+        verbose_name="Holati"
+    )
+
+    topic = models.CharField(max_length=255, blank=True, null=True, verbose_name="Mavzu (Izoh)")
+
+    # Nazorat
+    is_confirmed = models.BooleanField(default=False, verbose_name="O'quv bo'limi tasdiqladi")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Kunlik Dars Qaydi (Jurnal)"
+        verbose_name_plural = "Kunlik Darslar Jurnali"
+        unique_together = ['timetable', 'date', 'group']  # Bir vaqtda dublikat bo'lmasligi uchun
+        ordering = ['-date', 'timetable__timeslot']
+
+    def __str__(self):
+        status_icon = "✅" if self.status == 'held' else "⏳"
+        return f"{self.date} | {self.group} | {self.subject} {status_icon}"
+
+    def save(self, *args, **kwargs):
+        # Agar actual_teacher tanlanmagan bo'lsa, planned_teacher ni avtomat qo'yamiz
+        if not self.actual_teacher and self.planned_teacher:
+            self.actual_teacher = self.planned_teacher
+
+        # Agar status 'held' bo'lsa va o'qituvchilar har xil bo'lsa -> 'replaced' ga o'tkazish mantiqan to'g'ri bo'lishi mumkin,
+        # lekin admin panelda qo'lda boshqarilishi uchun buni qattiq qoida qilmaymiz.
+
+        super().save(*args, **kwargs)
+
+    @property
+    def is_substitution(self):
+        """O'qituvchi almashtirilganligini tekshirish"""
+        return self.planned_teacher != self.actual_teacher and self.status in ['held', 'replaced']
+
+
+class ScheduleError(models.Model):
+    """
+    Generatsiya vaqtida joylashtirib bo'lmagan darslar logi.
+    Admin buni ko'rib, keyin tuzatishlar kiritadi.
+    """
+    academic_year = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE)
+    semester = models.IntegerField()
+    workload = models.ForeignKey('education.Workload', on_delete=models.CASCADE)
+    reason = models.TextField(help_text="Nega joylashmadi? (Masalan: O'qituvchi band)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Error: {self.workload} - {self.reason}"
+
 
