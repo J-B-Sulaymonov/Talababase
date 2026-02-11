@@ -136,7 +136,11 @@ JAZZMIN_SETTINGS = {
         "kadrlar.Department",
         "kadrlar.Position",
         "kadrlar.OrganizationStructure",
+        "kadrlar.OrganizationStructure",
         "kadrlar.SimpleStructure",
+        # Academy Hidden Models
+        "academy.Level", "academy.Teacher", "academy.WeekDay",
+        "academy.Enrollment", "academy.StudentPayment", "academy.TeacherSalary",
     ],
     "custom_links": {
         "students": [
@@ -153,9 +157,20 @@ JAZZMIN_SETTINGS = {
                 "icon": "fas fa-chart-pie",
                 "permissions": ["kadrlar.view_employee"],
             },
-            ]
+            ],
+        "academy": [
+            {
+                "name": "Sozlamalar",
+                "url": "admin:academy_general",
+                "icon": "fas fa-cogs",
+                "permissions": ["academy.view_teacher"],
+            },
+        ]
     },
     "order_with_respect_to": [
+        "academy",
+        "academy.Group",
+        "academy.Student",
         "kadrlar",
         "kadrlar.Department",
         "kadrlar.Employee",
@@ -173,7 +188,15 @@ JAZZMIN_SETTINGS = {
         "kadrlar": "fas fa-building",
         "kadrlar.Department": "fas fa-sitemap",
         "kadrlar.Employee": "fas fa-id-card",
+        "kadrlar.Department": "fas fa-sitemap",
+        "kadrlar.Employee": "fas fa-id-card",
         "kadrlar.Teacher": "fas fa-chalkboard-teacher",
+
+        "academy": "fas fa-university",
+        "academy.Group": "fas fa-users",
+        "academy.Student": "fas fa-user-graduate",
+        "academy.Teacher": "fas fa-chalkboard-teacher",
+        "academy.Level": "fas fa-layer-group",
     },
     "use_google_fonts_cdn": True,
 }

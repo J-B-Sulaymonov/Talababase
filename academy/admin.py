@@ -13,6 +13,7 @@ from django.http import HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.shortcuts import render
 
 import openpyxl
 from openpyxl.utils import get_column_letter
@@ -47,12 +48,22 @@ class LevelAdmin(admin.ModelAdmin):
 # =============================================================================
 # 👨‍🏫 O'QITUVCHILAR
 # =============================================================================
+# =============================================================================
+# 👨‍🏫 O'QITUVCHILAR
+# =============================================================================
+
+class TeacherSalaryInline(admin.StackedInline):
+    model = TeacherSalary
+    extra = 0
+    fields = ('amount', 'payment_date', 'month_for', 'type', 'payment_method', 'comment')
+
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
     list_display = ('full_name_display', 'phone_number', 'is_active')
     list_filter = ('is_active',)
     search_fields = ('first_name', 'last_name', 'phone_number')
     list_per_page = 50
+    inlines = [TeacherSalaryInline]
 
     @admin.display(description="F.I.SH", ordering='first_name')
     def full_name_display(self, obj):
@@ -87,15 +98,86 @@ class GroupAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related('level', 'teacher').prefetch_related('days')
-        return qs.annotate(
+        qs = qs.annotate(
             student_count=Count('enrollments', filter=Q(enrollments__is_active=True))
         )
 
+        # JS filterlar uchun comma-separated qiymatlarni qo'llab-quvvatlash
+        name_filter = getattr(request, '_custom_name_filter', '')
+        if name_filter:
+            name_ids = [v for v in name_filter.split(',') if v]
+            if name_ids:
+                qs = qs.filter(id__in=name_ids)
+
+        level_filter = request.GET.get('level', '')
+        if level_filter and ',' in level_filter:
+            level_ids = [v for v in level_filter.split(',') if v]
+            if level_ids:
+                qs = qs.filter(level__id__in=level_ids)
+
+        teacher_filter = request.GET.get('teacher', '')
+        if teacher_filter and ',' in teacher_filter:
+            teacher_ids = [v for v in teacher_filter.split(',') if v]
+            if teacher_ids:
+                qs = qs.filter(teacher__id__in=teacher_ids)
+
+        is_active_filter = getattr(request, '_custom_is_active_filter', '')
+        if is_active_filter:
+            if is_active_filter in ('true', 'false'):
+                qs = qs.filter(is_active=(is_active_filter == 'true'))
+            elif ',' in is_active_filter:
+                # Agar ikkala qiymat tanlangan bo'lsa — filter qo'llanmaydi
+                pass
+
+        return qs
+
     # ---------------------------------------------------------
-    # STATISTIKA PANELI
+    # CUSTOM URLS
+    # ---------------------------------------------------------
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('export-excel/', self.admin_site.admin_view(self.export_groups_excel),
+                 name='export_groups_excel'),
+        ]
+        return custom_urls + urls
+
+    # ---------------------------------------------------------
+    # STATISTIKA PANELI + FILTER DATA
     # ---------------------------------------------------------
     def changelist_view(self, request, extra_context=None):
+        # Custom JS filter params — Django admin tanimaydi
+        # request attribute sifatida saqlab, GET dan tozalaymiz
+        request._custom_name_filter = request.GET.get('name', '')
+        request._custom_is_active_filter = request.GET.get('is_active', '')
+        
+        need_copy = False
+        if 'name' in request.GET or request._custom_is_active_filter in ('true', 'false'):
+            if not need_copy:
+                request.GET = request.GET.copy()
+                need_copy = True
+            if 'name' in request.GET:
+                request.GET.pop('name')
+            if request._custom_is_active_filter in ('true', 'false'):
+                request.GET.pop('is_active')
+
+        # Filter data for JS filters
+        groups_data = list(Group.objects.filter(is_active=True).values('id', 'name').order_by('name'))
+        levels_data = list(Level.objects.values('id', 'name').order_by('name'))
+        teachers = Teacher.objects.filter(is_active=True).only('id', 'first_name', 'last_name')
+        teachers_data = [{'id': t.id, 'name': f"{t.first_name} {t.last_name or ''}".strip()} for t in teachers]
+        teachers_data.sort(key=lambda x: x['name'])
+        status_data = [
+            {'id': 'true', 'name': 'Faol'},
+            {'id': 'false', 'name': 'Nofaol'},
+        ]
+
         extra_context = extra_context or {}
+        extra_context['groups_json'] = json.dumps(groups_data)
+        extra_context['levels_json'] = json.dumps(levels_data)
+        extra_context['teachers_json'] = json.dumps(teachers_data)
+        extra_context['status_json'] = json.dumps(status_data)
+
         response = super().changelist_view(request, extra_context)
 
         if not hasattr(response, 'context_data') or 'cl' not in response.context_data:
@@ -129,6 +211,117 @@ class GroupAdmin(admin.ModelAdmin):
             'net_profit': net_profit,
         }
 
+        return response
+
+    # ---------------------------------------------------------
+    # EXCEL EXPORT
+    # ---------------------------------------------------------
+    def export_groups_excel(self, request):
+        """Guruhlar ro'yxatini Excelga export qilish"""
+        qs = self.get_queryset(request)
+
+        selected_fields = request.POST.getlist('selected_fields')
+        if not selected_fields:
+            selected_fields = [
+                'name', 'level', 'teacher', 'price', 'teacher_price',
+                'monthly_revenue', 'lessons_per_month', 'days', 'lesson_time',
+                'student_count', 'is_active',
+            ]
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Guruhlar Export"
+
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        money_format = '#,##0'
+
+        field_titles = {
+            'name': 'Guruh kodi',
+            'level': 'Daraja',
+            'teacher': "O'qituvchi",
+            'price': 'Narxi (oylik)',
+            'teacher_price': "O'qituvchi narxi",
+            'monthly_revenue': 'Oylik daromad',
+            'lessons_per_month': 'Darslar soni',
+            'days': 'Dars kunlari',
+            'lesson_time': 'Dars vaqti',
+            'student_count': "O'quvchilar",
+            'is_active': 'Holati',
+        }
+
+        money_fields = ['price', 'teacher_price', 'monthly_revenue']
+
+        for col_num, field in enumerate(selected_fields, 1):
+            column_letter = get_column_letter(col_num)
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = field_titles.get(field, field)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_align
+            cell.border = thin_border
+            ws.column_dimensions[column_letter].width = 20
+
+        row_num = 2
+        for obj in qs:
+            count = getattr(obj, 'student_count', 0)
+            for col_num, field in enumerate(selected_fields, 1):
+                cell = ws.cell(row=row_num, column=col_num)
+                val = None
+
+                if field == 'name':
+                    val = obj.name
+                elif field == 'level':
+                    val = obj.level.name if obj.level else '-'
+                elif field == 'teacher':
+                    val = f"{obj.teacher.first_name} {obj.teacher.last_name or ''}" if obj.teacher else '-'
+                elif field == 'price':
+                    val = int(obj.price) if obj.price else 0
+                elif field == 'teacher_price':
+                    val = int(obj.teacher_price) if obj.teacher_price else 0
+                elif field == 'monthly_revenue':
+                    val = int((obj.price or 0) * count)
+                elif field == 'lessons_per_month':
+                    val = obj.lessons_per_month
+                elif field == 'days':
+                    val = ", ".join([d.name for d in obj.days.all()])
+                elif field == 'lesson_time':
+                    start = obj.lesson_time_start.strftime('%H:%M') if obj.lesson_time_start else ''
+                    end = obj.lesson_time_end.strftime('%H:%M') if obj.lesson_time_end else ''
+                    val = f"{start} - {end}" if start and end else '-'
+                elif field == 'student_count':
+                    val = count
+                elif field == 'is_active':
+                    val = 'Faol' if obj.is_active else 'Nofaol'
+
+                if val is None:
+                    val = ""
+
+                if field in money_fields:
+                    try:
+                        cell.value = int(float(val)) if val else 0
+                        cell.number_format = money_format
+                    except (ValueError, TypeError):
+                        cell.value = val
+                else:
+                    cell.value = val if not isinstance(val, str) else str(val)
+
+                cell.border = thin_border
+                cell.alignment = center_align
+
+            row_num += 1
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        response['Content-Disposition'] = f'attachment; filename=Academy_Groups_{timestamp}.xlsx'
+        wb.save(response)
         return response
 
     # ---------------------------------------------------------
@@ -244,7 +437,7 @@ class GroupAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color:#adb5bd;">—</span>')
 
-    @admin.display(description="O'qituvchi ulushi %")
+    @admin.display(description="Ulushi %")
     def display_teacher_share(self, obj):
         """O'rtacha to'lanadigan ulush (foizda)"""
         share = obj.teacher_share_percentage()
@@ -458,17 +651,18 @@ class AcademyStudentAdmin(admin.ModelAdmin):
     list_display = (
         'full_name',
         'phone_number',
+        'get_created_at_display',
         'get_groups_display',
         'get_level_display',
         'get_teacher_display',
         'status',
         # --- TO'LOV USTUNLARI ---
         'get_monthly_payment',
-        'get_total_payment',
-        'get_paid_percent',
-        'get_payment_debt',
         'get_months_display',
-        'get_created_at_display',
+        'get_expected_total_display',
+        'get_total_payment',
+        'get_payment_debt',
+        'get_paid_percent',
     )
 
     list_filter = (
@@ -680,7 +874,17 @@ class AcademyStudentAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    @admin.display(description="To'langan", ordering='total_paid')
+    @admin.display(description="Jami summa")
+    def get_expected_total_display(self, obj):
+        total = self._get_expected_total(obj)
+        if total > 0:
+            return format_html(
+                '<span style="font-weight:600; color:#343a40;">{}</span>',
+                f"{total:,.0f}".replace(",", " ")
+            )
+        return "-"
+
+    @admin.display(description="LTV", ordering='total_paid')
     def get_total_payment(self, obj):
         val = getattr(obj, 'total_paid', Decimal(0))
         if val and val > 0:
@@ -732,6 +936,12 @@ class AcademyStudentAdmin(admin.ModelAdmin):
             '<span class="status-badge badge-danger">{}</span>',
             formatted
         )
+
+    def dehydrate_qabul_order_date(self, student):
+        order = student.enrollments.order_by('enrolled_date').first()
+        if order and order.enrolled_date:
+            return order.enrolled_date.strftime('%d.%m.%Y')
+        return ""
 
     @admin.display(description="Qabul sanasi", ordering='created_at')
     def get_created_at_display(self, obj):
@@ -961,3 +1171,32 @@ class AcademyStudentAdmin(admin.ModelAdmin):
             self.sortable_by,
             self.search_help_text,
         )
+
+
+def academy_general_view(request):
+    models_links = [
+        {"title": "O'qituvchilar", "subtitle": "Teacher", "url": reverse('admin:academy_teacher_changelist'), "icon": "fas fa-chalkboard-teacher"},
+        {"title": "Darajalar", "subtitle": "Level", "url": reverse('admin:academy_level_changelist'), "icon": "fas fa-layer-group"},
+        {"title": "Hafta kunlari", "subtitle": "WeekDay", "url": reverse('admin:academy_weekday_changelist'), "icon": "fas fa-calendar-day"},
+        {"title": "Kursga qabul", "subtitle": "Enrollment", "url": reverse('admin:academy_enrollment_changelist'), "icon": "fas fa-user-plus"},
+        {"title": "O'quvchi to'lovlari", "subtitle": "StudentPayment", "url": reverse('admin:academy_studentpayment_changelist'), "icon": "fas fa-money-bill-wave"},
+        {"title": "O'qituvchi maoshlari", "subtitle": "TeacherSalary", "url": reverse('admin:academy_teachersalary_changelist'), "icon": "fas fa-hand-holding-usd"},
+    ]
+    
+    # Global admin kontekstini olish
+    context = admin.site.each_context(request)
+    context.update({
+        'title': "Academy Sozlamalari",
+        'models_links': models_links,
+    })
+    return render(request, 'admin/academy/general.html', context)
+
+original_get_urls = admin.site.get_urls
+
+def get_urls():
+    custom_urls = [
+        path('academy/general/', admin.site.admin_view(academy_general_view), name='academy_general'),
+    ]
+    return custom_urls + original_get_urls()
+
+admin.site.get_urls = get_urls

@@ -1,0 +1,172 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Overall wrapper: kengroq qilib 4 ustun uchun joy beramiz */
+    .academy-general-wrap {
+        width: 100%;
+        margin: 28px auto;
+        padding: 0 16px;
+    }
+
+    /* Card */
+    .ag-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 26px;
+        box-shadow: 0 8px 28px rgba(15, 23, 28, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    /* Header */
+    .ag-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .ag-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #21363b;
+        margin: 0;
+    }
+
+    /* Grid: 4 kolonkali layout desktopda */
+    .ag-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        align-items: start;
+        margin-top: 8px;
+    }
+
+    /* Har bir item */
+    .ag-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: inherit;
+        background: linear-gradient(180deg, rgba(38, 75, 93, 0.03), rgba(38, 75, 93, 0.01));
+        border: 1px solid rgba(37, 55, 60, 0.06);
+        transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+        min-height: 72px;
+    }
+
+    .ag-item:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 10px 28px rgba(2, 12, 20, 0.08);
+        background: linear-gradient(180deg, rgba(38, 75, 93, 0.08), rgba(38, 75, 93, 0.02));
+    }
+
+    /* Icon square circle */
+    .ag-icon {
+        min-width: 52px;
+        min-height: 52px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: #fff;
+        background: linear-gradient(135deg, #1f6b7a, #235d72);
+        box-shadow: inset 0 -2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Text */
+    .ag-label {
+        font-weight: 700;
+        font-size: 14px;
+        color: #0f3b45;
+    }
+
+    .ag-sub {
+        display: block;
+        font-size: 12px;
+        color: #5f7a82;
+        margin-top: 3px;
+    }
+
+    /* Responsive breakpoints */
+    /* large tablets / small desktops -> 3 columns */
+    @media (max-width: 1200px) {
+        .ag-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    /* tablets -> 2 columns */
+    @media (max-width: 900px) {
+        .ag-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* phones -> 1 column */
+    @media (max-width: 560px) {
+        .academy-general-wrap {
+            padding: 0 10px;
+            max-width: 100%;
+        }
+
+        .ag-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .ag-title {
+            font-size: 20px;
+        }
+
+        .ag-item {
+            min-height: 64px;
+            padding: 10px 12px;
+        }
+
+        .ag-icon {
+            min-width: 44px;
+            min-height: 44px;
+            font-size: 16px;
+        }
+    }
+</style>
+
+<div class="academy-general-wrap">
+    <div class="ag-card">
+        <div class="ag-header">
+            <h1 class="ag-title">{{ title }}</h1>
+        </div>
+
+        <div class="ag-grid" role="list">
+            {# models_links: view dan yuborilgan list of dicts: title, subtitle, url, icon #}
+            {% for item in models_links %}
+            <a class="ag-item" href="{{ item.url }}" role="listitem"
+                title="{{ item.title }}{% if item.subtitle %} ({{ item.subtitle }}){% endif %}">
+                <div class="ag-icon" aria-hidden="true">
+                    {% if item.icon %}
+                    <i class="{{ item.icon }}"></i>
+                    {% else %}
+                    <i class="fas fa-folder-open"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="ag-label">{{ item.title }}</div>
+                    {% if item.subtitle %}
+                    <div class="ag-sub">{{ item.subtitle }}</div>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

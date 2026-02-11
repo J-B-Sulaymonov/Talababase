@@ -113,7 +113,7 @@
 
     .results,
     .card-body {
-        min-height: 55vh !important;
+        min-height: 65vh !important;
         margin-top: 0 !important;
         /* Padding kamaytirildi */
         padding-top: 0 !important;
@@ -900,9 +900,56 @@
         form.submit();
         closeExportModal();
     }
-
     window.onclick = function (e) { if (e.target == document.getElementById('exportModal')) closeExportModal(); }
 </script>
+{% endblock %}
+
+{% block footer %}
+{# --- FOOTER STATS DATA --- #}
+<div id="footer-stats-data" style="display: none;"
+    data-monthly="{{ footer_stats.monthly|floatformat:0|intcomma|default:'0' }}"
+    data-paid="{{ footer_stats.paid|floatformat:0|intcomma|default:'0' }}"
+    data-expected="{{ footer_stats.expected|floatformat:0|intcomma|default:'0' }}"
+    data-debt="{{ footer_stats.debt|floatformat:0|intcomma|default:'0' }}">
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // --- HIDE PAGINATOR / COUNT TEXT ---
+        // "2 O'quvchilar" matnini yashirish uchun
+        // Jazzmin da bu odatda .card-footer ichida bo'ladi
+        const cardFooter = document.querySelector('.card-footer');
+        if (cardFooter) {
+            cardFooter.style.display = 'none';
+        }
+
+        // Yoki paginator classlari
+        const paginators = document.querySelectorAll('.paginator, .small.quiet, .result-count');
+        paginators.forEach(el => el.style.display = 'none');
+
+        // --- HIDE COUNT TEXT BY CONTENT (AGGRESSIVE) ---
+        // Sahifadagi barcha matnlarni tekshirib, agar "X O'quvchilar" formatida bo'lsa yashiramiz
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while (node = walker.nextNode()) {
+            // Regex: Raqam, bo'sh joy, O'quvchilar (yoki o'xshash)
+            if (/^\s*\d+\s+O'quvchilar\s*$/i.test(node.textContent)) {
+                // Matnning ota elementini topib yashiramiz
+                if (node.parentNode) {
+                    node.parentNode.style.display = 'none';
+                }
+            }
+        }
+    });
+</script>
+
+<style>
+    /* Remove default footer */
+    footer.main-footer,
+    .main-footer {
+        display: none !important;
+    }
+</style>
 {% endblock %}
 
 
