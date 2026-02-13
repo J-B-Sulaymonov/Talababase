@@ -23,7 +23,7 @@ INSTALLED_APPS = [
     'kadrlar',
     'education',
     'finance',
-    'academy',
+    # 'academy',
 ]
 
 MIDDLEWARE = [
@@ -202,5 +202,3 @@ JAZZMIN_SETTINGS = {
     },
     "use_google_fonts_cdn": True,
 }
-
-
