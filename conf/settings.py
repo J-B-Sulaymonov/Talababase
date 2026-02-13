@@ -171,10 +171,12 @@ JAZZMIN_SETTINGS = {
         "academy",
         "academy.Group",
         "academy.Student",
+        "students",
         "kadrlar",
         "kadrlar.Department",
         "kadrlar.Employee",
-        "students",
+        "education",
+        "finance",
         "auth",
     ],
     "icons": {
