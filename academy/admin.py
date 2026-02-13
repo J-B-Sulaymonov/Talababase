@@ -954,7 +954,7 @@ class AcademyStudentAdmin(admin.ModelAdmin):
         months = self._get_max_months(obj)
         if months > 0:
             return format_html(
-                '<span style="font-weight:600; color:#1c7ed6;">{} oy</span>',
+                '<span style="font-weight:600; color:#1c7ed6;">{}</span>',
                 months
             )
         return "-"
