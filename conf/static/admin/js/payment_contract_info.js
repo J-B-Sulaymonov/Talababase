@@ -1,5 +1,5 @@
-(function($) {
-    $(document).ready(function() {
+(function ($) {
+    $(document).ready(function () {
         var contractField = $('#id_contract');
         var infoBox = $('<div id="contract-info-bar" style="display: none;"></div>');
         $('.field-contract').append(infoBox);
@@ -15,7 +15,17 @@
                     url: '../get-contract-info/',
                     data: { 'contract_id': contractId },
                     dataType: 'json',
-                    success: function(data) {
+                    success: function (data) {
+                        var discountHtml = '';
+                        if (data.discount_amount > 0) {
+                            discountHtml = `
+                                <div class="metric-item">
+                                    <span class="m-label" style="color: #ff9800;">Chegirma</span>
+                                    <span class="m-value v-discount" style="color: #ff9800;">${formatMoney(data.discount_amount)}</span>
+                                </div>
+                            `;
+                        }
+
                         var html = `
                             <div class="student-name-section">
                                 <span style="font-size: 1.2em;">🎓</span> ${data.student_name}
@@ -25,6 +35,7 @@
                                     <span class="m-label">Shartnoma summasi</span>
                                     <span class="m-value v-contract">${formatMoney(data.contract_amount)}</span>
                                 </div>
+                                ${discountHtml}
                                 <div class="metric-item">
                                     <span class="m-label">To'langan</span>
                                     <span class="m-value v-paid">${formatMoney(data.paid_amount)}</span>
@@ -37,12 +48,12 @@
                         `;
                         infoBox.html(html).slideDown();
                     },
-                    error: function() { infoBox.hide(); }
+                    error: function () { infoBox.hide(); }
                 });
             } else { infoBox.slideUp(); }
         }
 
-        contractField.on('change', function() { updateContractInfo(); });
+        contractField.on('change', function () { updateContractInfo(); });
         if (contractField.val()) { updateContractInfo(); }
     });
 })(django.jQuery);

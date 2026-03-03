@@ -1681,12 +1681,16 @@ class PaymentAdmin(ImportExportModelAdmin):
 
             # 1. Hisob-kitoblar
             total_amount = contract.amount
+            discount_amount = contract.grant_amount or 0
+            
+            final_contract_amount = total_amount - discount_amount
             paid_amount = Payment.objects.filter(contract=contract).aggregate(sum=Sum('amount'))['sum'] or 0
-            debt = total_amount - paid_amount
+            debt = final_contract_amount - paid_amount
 
 
             return JsonResponse({
                 'contract_amount': float(total_amount),
+                'discount_amount': float(discount_amount),
                 'paid_amount': float(paid_amount),
                 'debt': float(debt),
                 'student_name': contract.student.full_name
