@@ -26,6 +26,9 @@
                             `;
                         }
 
+                        var debtLabel = data.debt < 0 ? "Ortiqcha to'lov" : 'Qarz';
+                        var debtStyle = data.debt < 0 ? 'style="color: #20c997;"' : '';
+
                         var html = `
                             <div class="student-name-section">
                                 <span style="font-size: 1.2em;">🎓</span> ${data.student_name}
@@ -41,8 +44,8 @@
                                     <span class="m-value v-paid">${formatMoney(data.paid_amount)}</span>
                                 </div>
                                 <div class="metric-item">
-                                    <span class="m-label">Qarz</span>
-                                    <span class="m-value v-debt">${formatMoney(data.debt)}</span>
+                                    <span class="m-label" ${debtStyle}>${debtLabel}</span>
+                                    <span class="m-value v-debt" ${debtStyle}>${formatMoney(Math.abs(data.debt))}</span>
                                 </div>
                             </div>
                         `;
