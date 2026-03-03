@@ -451,6 +451,7 @@ class SubjectDebt(models.Model):
     class StatusChoices(models.TextChoices):
         CLOSED = 'yopildi', "Yopildi"
         OPEN = 'yopilmadi', "Yopilmadi"
+        IN_PROGRESS = 'jarayonda', "Jarayonda"
 
     SEMESTER_CHOICES = [(i, f"{i}-semestr") for i in range(1, 11)]
     student = models.ForeignKey('Student', on_delete=models.CASCADE, verbose_name="Talaba")
@@ -466,9 +467,9 @@ class SubjectDebt(models.Model):
     payment_date = models.DateField("To'lov sanasi", default=timezone.now, blank=True, null=True)
     status = models.CharField(
         "Holati",
-        max_length=10,
+        max_length=15,
         choices=StatusChoices.choices,
-        default=StatusChoices.OPEN
+        default=StatusChoices.IN_PROGRESS
     )
     class Meta:
         verbose_name = "Fan bo‘yicha qarzdorlik"
