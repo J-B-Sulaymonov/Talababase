@@ -991,7 +991,7 @@ class StudentAdmin(admin.ModelAdmin):
 
         open_debt_count_subquery = SubjectDebt.objects.filter(
             student=OuterRef('pk'),
-            status='yopilmadi'
+            status__in=['yopilmadi', 'jarayonda']
         ).values('student').annotate(
             cnt=Count('id')
         ).values('cnt')
@@ -2343,6 +2343,8 @@ class SubjectDebtAdmin(admin.ModelAdmin):
     def get_status_display(self, obj):
         if obj.status == 'yopildi':
             return format_html('<span class="status-badge badge-success">Yopildi</span>')
+        elif obj.status == 'jarayonda':
+            return format_html('<span class="status-badge badge-info" style="color: #fff; background-color: #17a2b8;">Jarayonda</span>')
         return format_html('<span class="status-badge badge-warning">! Yopilmadi</span>')
 
     # --- EXPORT EXCEL QISMI ---
@@ -3633,7 +3635,7 @@ class HisobotAdmin(admin.ModelAdmin):
         if selected_subject_status == 'closed':
             debt_qs = debt_qs.filter(status='yopildi')
         elif selected_subject_status == 'open':
-            debt_qs = debt_qs.filter(status='yopilmadi')
+            debt_qs = debt_qs.filter(status__in=['yopilmadi', 'jarayonda'])
 
         # Prefetch
         debt_prefetch = Prefetch(
