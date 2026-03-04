@@ -54,6 +54,22 @@
     color: #495057 !important;
 }
 
+/* Django FK yonidagi qalamcha, ko'z, plus iconlarini yashirish */
+.inline-group .tabular .related-widget-wrapper-link {
+    display: none !important;
+}
+
+.inline-group .tabular .related-widget-wrapper {
+    display: block !important;
+    width: 100% !important;
+}
+
+/* Select2 konteynerining o'zi kattalashib ketmasligi uchun (staircase bug'ning oldini olish) */
+.inline-group .tabular .select2-container {
+    width: 100% !important;
+    max-width: 100%;
+}
+
 /* Oddiy inputlar markazda tursin */
 .inline-group .tabular input {
     text-align: center;
@@ -67,6 +83,7 @@
     text-align: left;
     padding-left: 5px !important;
 }
+
 .select2-container--default .select2-selection--single .select2-selection__arrow {
     height: 32px !important;
 }
@@ -75,11 +92,13 @@
    3. USTUN KENGLIKLARI (SIZNING MODELINGIZGA MOSLAB)
    ========================================================================== */
 
-/* Katta ustun: Fan (Subject) */
+/* Katta ustun: Fan (Subject) va Muqobil (Tanlov) fanlar */
 .inline-group .tabular .field-subject,
-.inline-group .tabular .column-subject {
-    width: 250px !important;
-    min-width: 200px;
+.inline-group .tabular .column-subject,
+.inline-group .tabular .field-alternative_subjects,
+.inline-group .tabular .column-alternative_subjects {
+    width: 300px !important;
+    min-width: 250px;
 }
 
 /* O'rta ustunlar: Fan turi, Semestr */
@@ -95,8 +114,22 @@
 .inline-group .tabular .field-lecture_hours,
 .inline-group .tabular .field-practice_hours,
 .inline-group .tabular .field-lab_hours,
-.inline-group .tabular .field-seminar_hours {
-    width: 70px !important;
+.inline-group .tabular .field-seminar_hours,
+.inline-group .tabular .field-independent_hours {
+    width: 65px !important;
+    min-width: 60px !important;
+}
+
+.inline-group .tabular td.field-credit input,
+.inline-group .tabular td.field-semester_time input,
+.inline-group .tabular td.field-total_hours input,
+.inline-group .tabular td.field-lecture_hours input,
+.inline-group .tabular td.field-practice_hours input,
+.inline-group .tabular td.field-lab_hours input,
+.inline-group .tabular td.field-seminar_hours input,
+.inline-group .tabular td.field-independent_hours input {
+    width: 100% !important;
+    padding: 0 4px !important;
 }
 
 /* O'chirish (Delete) checkbox ustuni */

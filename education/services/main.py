@@ -6,16 +6,17 @@ from education.models import TimeTable, LessonLog
 from kadrlar.models import Weekday
 
 
-def generate_semester_logs(start_date, end_date, academic_year_id, semester):
+def generate_semester_logs(start_date, end_date, academic_year_id, semester, education_form='kunduzgi'):
     """
-    Berilgan sana, o'quv yili va semestr uchun jurnal yaratadi.
+    Berilgan sana, o'quv yili, semestr va ta'lim shakli uchun jurnal yaratadi.
+    education_form: 'kunduzgi' yoki 'sirtqi'
     """
 
-    # --- O'ZGARISH SHU YERDA ---
-    # Barcha jadvallarni emas, faqat tanlangan yil va semestrnikini olamiz!
+    # Ta'lim shakliga qarab filter
     timetables = TimeTable.objects.filter(
         academic_year_id=academic_year_id,
-        semester=semester
+        semester=semester,
+        education_form=education_form
     ).select_related(
         'group', 'subject', 'teacher', 'stream__workload__plan_subjects'
     ).all()

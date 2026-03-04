@@ -15,7 +15,7 @@ from django.utils.translation import gettext_lazy as _
 from django import forms
 import io
 from students.models import Group, AcademicYear
-from .models import EducationPlan, PlanSubject, Workload, Stream, SubGroup, Room
+from .models import EducationPlan, PlanSubject, Workload, Stream, SubGroup, Room, SessionPeriod
 from .services.main import generate_semester_logs
 
 
@@ -72,11 +72,11 @@ class PlanSubjectInline(admin.TabularInline):
     extra = 0
     min_num = 0
     fields = (
-        'subject', 'total_hours', 'lecture_hours', 'practice_hours',
+        'subject', 'alternative_subjects', 'total_hours', 'lecture_hours', 'practice_hours',
         'lab_hours', 'seminar_hours', 'independent_hours', 'semester', 'semester_time',
         'subject_type', 'credit',
     )
-    autocomplete_fields = ['subject']
+    autocomplete_fields = ['subject', 'alternative_subjects']
 
     class Media:
         css = {
@@ -196,7 +196,7 @@ class EducationPlanAdmin(admin.ModelAdmin):
 
     def export_education_plan_excel(self, request, pk):
         plan = get_object_or_404(EducationPlan, pk=pk)
-        subjects = PlanSubject.objects.filter(education_plan=plan).select_related('subject').order_by('semester',
+        subjects = PlanSubject.objects.filter(education_plan=plan).select_related('subject').prefetch_related('alternative_subjects').order_by('semester',
                                                                                                       'subject__name')
 
         output = io.BytesIO()
@@ -361,83 +361,118 @@ class EducationPlanAdmin(admin.ModelAdmin):
         # --- DATA QISMI ---
         row_idx = START_ROW + 7  # Data START_ROW + 7 dan boshlanadi
 
-        t_credit = 0;
-        t_total = 0;
-        t_aud = 0
-        t_lec = 0;
-        t_prac = 0;
-        t_lab = 0;
-        t_sem = 0;
-        t_ind = 0
-        processed_data = []
+        # JAMI HISOB-KITOB (Guruhlar bo'yicha alohida)
+        majburiy_subjects = [s for s in subjects if s.subject_type == 'majburiy']
+        tanlov_subjects = [s for s in subjects if s.subject_type == 'tanlov']
 
-        for item in subjects:
-            aud = item.lecture_hours + item.practice_hours + item.seminar_hours + item.lab_hours
-            total = item.total_hours if item.total_hours else (item.credit * 30)
-            ind = total - aud
+        def get_totals(subject_list):
+            res = {
+                'credit': 0, 'total': 0, 'aud': 0, 'lec': 0, 'prac': 0,
+                'lab': 0, 'sem': 0, 'ind': 0, 'data': []
+            }
+            for item in subject_list:
+                aud = item.lecture_hours + item.practice_hours + item.seminar_hours + item.lab_hours
+                total = item.total_hours if item.total_hours else (item.credit * 30)
+                ind = total - aud
+                
+                res['credit'] += item.credit
+                res['total'] += total
+                res['aud'] += aud
+                res['lec'] += item.lecture_hours
+                res['prac'] += item.practice_hours
+                res['lab'] += item.lab_hours
+                res['sem'] += item.seminar_hours
+                res['ind'] += ind
+                res['data'].append({'obj': item, 'aud': aud, 'ind': ind, 'total': total})
+            return res
 
-            t_credit += item.credit;
-            t_total += total;
-            t_aud += aud
-            t_lec += item.lecture_hours;
-            t_prac += item.practice_hours
-            t_lab += item.lab_hours;
-            t_sem += item.seminar_hours;
-            t_ind += ind
+        m_totals = get_totals(majburiy_subjects)
+        t_totals = get_totals(tanlov_subjects)
 
-            processed_data.append({'obj': item, 'aud': aud, 'ind': ind, 'total': total})
+        def write_total_row(row_idx, label, totals):
+            worksheet.write(row_idx, 0, "", fmt_bold)
+            worksheet.write(row_idx, 1, f"{label.upper()}:", fmt_bold)
+            worksheet.write(row_idx, 2, totals['total'], fmt_bold)
+            worksheet.write(row_idx, 3, 0, fmt_bold)
+            worksheet.write(row_idx, 4, totals['aud'], fmt_bold)
+            worksheet.write(row_idx, 5, totals['lec'], fmt_bold)
+            worksheet.write(row_idx, 6, totals['prac'], fmt_bold)
+            worksheet.write(row_idx, 7, totals['lab'], fmt_bold)
+            worksheet.write(row_idx, 8, totals['sem'], fmt_bold)
+            worksheet.write(row_idx, 9, 0, fmt_bold)
+            worksheet.write(row_idx, 10, totals['ind'], fmt_bold)
+            for c in range(11, 27):
+                worksheet.write(row_idx, c, "", fmt_base)
+            worksheet.write(row_idx, 27, totals['credit'], fmt_bold)
+            return row_idx + 1
 
-        # JAMI QATORI
-        worksheet.write(row_idx, 0, "1.00", fmt_bold)
-        worksheet.write(row_idx, 1, "JAMI FANLAR:", fmt_bold)
+        # Majburiy fanlar qismini chiqarish
+        if m_totals['data']:
+            row_idx = write_total_row(row_idx, "MAJBURIY FANLAR", m_totals)
+            counter = 1
+            for p in m_totals['data']:
+                item = p['obj']
+                worksheet.write(row_idx, 0, counter, fmt_base)
+                subject_text = item.subject.name
+                alts = item.alternative_subjects.all()
+                if alts:
+                    alt_names = "\n".join([a.name for a in alts])
+                    subject_text += f"\n{alt_names}"
+                worksheet.write(row_idx, 1, subject_text, fmt_left)
+                worksheet.write(row_idx, 2, p['total'], fmt_bold)
+                worksheet.write(row_idx, 3, 0, fmt_bold)
+                worksheet.write(row_idx, 4, p['aud'], fmt_bold)
+                worksheet.write(row_idx, 5, item.lecture_hours if item.lecture_hours else "", fmt_base)
+                worksheet.write(row_idx, 6, item.practice_hours if item.practice_hours else "", fmt_base)
+                worksheet.write(row_idx, 7, item.lab_hours if item.lab_hours else "", fmt_base)
+                worksheet.write(row_idx, 8, item.seminar_hours if item.seminar_hours else "", fmt_base)
+                worksheet.write(row_idx, 9, "", fmt_base)
+                worksheet.write(row_idx, 10, p['ind'], fmt_bold)
+                for i in range(1, 9):
+                    col_h = 11 + (i - 1); col_c = 19 + (i - 1)
+                    if item.semester == i:
+                        worksheet.write(row_idx, col_h, item.semester_time, fmt_base)
+                        worksheet.write(row_idx, col_c, item.credit, fmt_bold)
+                    else:
+                        worksheet.write(row_idx, col_h, "", fmt_base)
+                        worksheet.write(row_idx, col_c, "", fmt_base)
+                worksheet.write(row_idx, 27, item.credit, fmt_bold)
+                row_idx += 1
+                counter += 1
 
-        # 3 va 4-ustunlar ALOHIDA
-        worksheet.write(row_idx, 2, t_total, fmt_bold)  # C ustun (Total)
-        worksheet.write(row_idx, 3, 0, fmt_bold)  # D ustun (0)
-
-        worksheet.write(row_idx, 4, t_aud, fmt_bold)
-        worksheet.write(row_idx, 5, t_lec, fmt_bold)
-        worksheet.write(row_idx, 6, t_prac, fmt_bold)
-        worksheet.write(row_idx, 7, t_lab, fmt_bold)
-        worksheet.write(row_idx, 8, t_sem, fmt_bold)
-        worksheet.write(row_idx, 9, 0, fmt_bold)
-        worksheet.write(row_idx, 10, t_ind, fmt_bold)
-        for c in range(11, 27):
-            worksheet.write(row_idx, c, "", fmt_base)
-        worksheet.write(row_idx, 27, t_credit, fmt_bold)
-        row_idx += 1
-
-        # LIST
-        counter = 1
-        for p in processed_data:
-            item = p['obj']
-            worksheet.write(row_idx, 0, counter, fmt_base)
-            worksheet.write(row_idx, 1, item.subject.name, fmt_left)
-
-            # 3 va 4-ustunlar ALOHIDA
-            worksheet.write(row_idx, 2, p['total'], fmt_bold)  # C ustun
-            worksheet.write(row_idx, 3, 0, fmt_bold)  # D ustun
-
-            worksheet.write(row_idx, 4, p['aud'], fmt_bold)
-            worksheet.write(row_idx, 5, item.lecture_hours if item.lecture_hours else "", fmt_base)
-            worksheet.write(row_idx, 6, item.practice_hours if item.practice_hours else "", fmt_base)
-            worksheet.write(row_idx, 7, item.lab_hours if item.lab_hours else "", fmt_base)
-            worksheet.write(row_idx, 8, item.seminar_hours if item.seminar_hours else "", fmt_base)
-            worksheet.write(row_idx, 9, "", fmt_base)
-            worksheet.write(row_idx, 10, p['ind'], fmt_bold)
-
-            for i in range(1, 9):
-                col_h = 11 + (i - 1);
-                col_c = 19 + (i - 1)
-                if item.semester == i:
-                    worksheet.write(row_idx, col_h, item.semester_time, fmt_base)
-                    worksheet.write(row_idx, col_c, item.credit, fmt_bold)
-                else:
-                    worksheet.write(row_idx, col_h, "", fmt_base)
-                    worksheet.write(row_idx, col_c, "", fmt_base)
-            worksheet.write(row_idx, 27, item.credit, fmt_bold)
-            row_idx += 1
-            counter += 1
+        # Tanlov fanlari qismini chiqarish
+        if t_totals['data']:
+            row_idx = write_total_row(row_idx, "TANLOV FANLARI", t_totals)
+            counter = 1
+            for p in t_totals['data']:
+                item = p['obj']
+                worksheet.write(row_idx, 0, counter, fmt_base)
+                subject_text = item.subject.name
+                alts = item.alternative_subjects.all()
+                if alts:
+                    alt_names = "\n".join([a.name for a in alts])
+                    subject_text += f"\n{alt_names}"
+                worksheet.write(row_idx, 1, subject_text, fmt_left)
+                worksheet.write(row_idx, 2, p['total'], fmt_bold)
+                worksheet.write(row_idx, 3, 0, fmt_bold)
+                worksheet.write(row_idx, 4, p['aud'], fmt_bold)
+                worksheet.write(row_idx, 5, item.lecture_hours if item.lecture_hours else "", fmt_base)
+                worksheet.write(row_idx, 6, item.practice_hours if item.practice_hours else "", fmt_base)
+                worksheet.write(row_idx, 7, item.lab_hours if item.lab_hours else "", fmt_base)
+                worksheet.write(row_idx, 8, item.seminar_hours if item.seminar_hours else "", fmt_base)
+                worksheet.write(row_idx, 9, "", fmt_base)
+                worksheet.write(row_idx, 10, p['ind'], fmt_bold)
+                for i in range(1, 9):
+                    col_h = 11 + (i - 1); col_c = 19 + (i - 1)
+                    if item.semester == i:
+                        worksheet.write(row_idx, col_h, item.semester_time, fmt_base)
+                        worksheet.write(row_idx, col_c, item.credit, fmt_bold)
+                    else:
+                        worksheet.write(row_idx, col_h, "", fmt_base)
+                        worksheet.write(row_idx, col_c, "", fmt_base)
+                worksheet.write(row_idx, 27, item.credit, fmt_bold)
+                row_idx += 1
+                counter += 1
 
         workbook.close()
         output.seek(0)
@@ -449,7 +484,7 @@ class EducationPlanAdmin(admin.ModelAdmin):
 
     def education_plan_print_view(self, request, pk):
         plan = get_object_or_404(EducationPlan, pk=pk)
-        subjects = PlanSubject.objects.filter(education_plan=plan).select_related('subject').order_by('semester',
+        subjects = PlanSubject.objects.filter(education_plan=plan).select_related('subject').prefetch_related('alternative_subjects').order_by('semester',
                                                                                                       'subject__name')
 
         # --- QOLIB KETGAN QISM: Semestrlar sonini aniqlash ---
@@ -464,33 +499,41 @@ class EducationPlanAdmin(admin.ModelAdmin):
         semester_range = range(1, max_sem + 1)
         # -----------------------------------------------------
 
-        processed_subjects = []
-        totals = {
-            'credit': 0, 'total': 0, 'auditorium': 0,
-            'lecture': 0, 'practice': 0, 'seminar': 0, 'lab': 0,
-            'independent': 0
-        }
+        m_subjects = []
+        t_subjects = []
+        m_totals = {'credit': 0, 'total': 0, 'auditorium': 0, 'lecture': 0, 'practice': 0, 'seminar': 0, 'lab': 0, 'independent': 0}
+        t_totals = {'credit': 0, 'total': 0, 'auditorium': 0, 'lecture': 0, 'practice': 0, 'seminar': 0, 'lab': 0, 'independent': 0}
 
         for item in subjects:
             aud_hours = item.lecture_hours + item.practice_hours + item.seminar_hours + item.lab_hours
             total = item.total_hours if item.total_hours else (item.credit * 30)
             ind_hours = total - aud_hours
+            alts = item.alternative_subjects.all()
+            alt_names = "<br>".join([a.name for a in alts]) if alts else ""
 
-            processed_subjects.append({
+            data = {
                 'obj': item,
                 'auditorium_hours': aud_hours,
                 'independent_hours': ind_hours,
-                'total_calc': total
-            })
+                'total_calc': total,
+                'alt_names': alt_names
+            }
 
-            totals['credit'] += item.credit
-            totals['total'] += total
-            totals['auditorium'] += aud_hours
-            totals['lecture'] += item.lecture_hours
-            totals['practice'] += item.practice_hours
-            totals['seminar'] += item.seminar_hours
-            totals['lab'] += item.lab_hours
-            totals['independent'] += ind_hours
+            if item.subject_type == 'majburiy':
+                m_subjects.append(data)
+                target = m_totals
+            else:
+                t_subjects.append(data)
+                target = t_totals
+                
+            target['credit'] += item.credit
+            target['total'] += total
+            target['auditorium'] += aud_hours
+            target['lecture'] += item.lecture_hours
+            target['practice'] += item.practice_hours
+            target['seminar'] += item.seminar_hours
+            target['lab'] += item.lab_hours
+            target['independent'] += ind_hours
         context = self.admin_site.each_context(request)
         context.update({
             'title': f"O'quv reja: {plan}",
@@ -498,8 +541,10 @@ class EducationPlanAdmin(admin.ModelAdmin):
             'has_permission': True,
             'user': request.user,
             'plan': plan,
-            'subjects': processed_subjects,
-            'totals': totals,
+            'm_subjects': m_subjects,
+            't_subjects': t_subjects,
+            'm_totals': m_totals,
+            't_totals': t_totals,
             'semester_range': semester_range,
             'max_sem': max_sem,
             'edu_type': edu_type_display,
@@ -1298,13 +1343,14 @@ class TimeTableAdmin(admin.ModelAdmin):
             action = request.POST.get('action')
             year_id = request.POST.get('academic_year')
             season = request.POST.get('season')
+            education_form = request.POST.get('education_form', 'kunduzgi')
 
             s1_raw = request.POST.getlist('shift1_levels')
             s2_raw = request.POST.getlist('shift2_levels')
             shift1 = [int(x) for x in s1_raw] if s1_raw else []
             shift2 = [int(x) for x in s2_raw] if s2_raw else []
 
-            service = ScheduleGeneratorService(year_id, season, shift1, shift2)
+            service = ScheduleGeneratorService(year_id, season, shift1, shift2, education_form)
 
             if action == 'save':
                 service.generate(dry_run=False)
@@ -1351,6 +1397,7 @@ class TimeTableAdmin(admin.ModelAdmin):
                 'academic_years': AcademicYear.objects.all(),
                 'selected_year': int(year_id) if year_id else None,
                 'selected_season': season,
+                'selected_education_form': education_form,
                 'selected_shift1': shift1,
                 'selected_shift2': shift2,
                 'preview_mode': True,
@@ -1371,6 +1418,7 @@ class TimeTableAdmin(admin.ModelAdmin):
             'title': "Avtomatik Jadval Generatori",
             'academic_years': AcademicYear.objects.all(),
             'selected_season': 'autumn',
+            'selected_education_form': 'kunduzgi',
             'selected_shift1': [1, 4],
             'selected_shift2': [2, 3],
             'opts': self.model._meta,
@@ -1385,3 +1433,13 @@ class TimeTableAdmin(admin.ModelAdmin):
 class ScheduleErrorAdmin(admin.ModelAdmin):
     list_display = ('workload', 'reason', 'created_at')
     list_filter = ('academic_year', 'reason')
+
+@admin.register(SessionPeriod)
+class SessionPeriodAdmin(admin.ModelAdmin):
+    list_display = (
+        'academic_year', 'semester', 'education_form',
+        'course', 'start_date', 'end_date', 'weeks_count'
+    )
+    list_filter = ('academic_year', 'semester', 'education_form', 'course')
+    search_fields = ('academic_year__name',)
+    ordering = ('-academic_year__name', 'education_form', 'course', 'semester')

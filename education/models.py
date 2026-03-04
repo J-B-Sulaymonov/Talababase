@@ -43,12 +43,12 @@ class EducationPlan(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.specialty} - {self.get_course_display()} ({self.academic_year})"
+        return f"{self.specialty} - {self.get_course_display()} ({self.academic_year}) - {self.get_education_form_display()}"
 
     class Meta:
         verbose_name = "O'quv reja"
         verbose_name_plural = "O'quv rejalar"
-        unique_together = ['specialty', 'academic_year', 'course']
+        unique_together = ['specialty', 'academic_year', 'education_form', 'course']
         ordering = ['-academic_year', 'specialty', 'course']
 
 
@@ -77,6 +77,14 @@ class PlanSubject(models.Model):
         on_delete=models.CASCADE,
         verbose_name="Fan"
     )
+    
+    alternative_subjects = models.ManyToManyField(
+        Subject,
+        blank=True,
+        related_name="alternative_in_plans",
+        verbose_name="Muqobil (Tanlov) fanlar",
+        help_text="Ushbu asosiy fan o'rniga qanday muqobil tanlovlar borligini ko'rsating (agar bo'lsa)."
+    )
 
     subject_type = models.CharField(
         max_length=20,
@@ -85,7 +93,7 @@ class PlanSubject(models.Model):
         verbose_name="Fan turi"
     )
 
-    credit = models.PositiveSmallIntegerField(verbose_name="Kredit", default=6)
+    credit = models.PositiveSmallIntegerField(verbose_name="Kredit", default=4)
     semester = models.PositiveSmallIntegerField(choices=SEMESTER_CHOICES, verbose_name="Semestr")
 
     # Haftasiga necha soat dars bo'lishi
@@ -307,8 +315,18 @@ class TimeTable(models.Model):
         ('autumn', 'Kuzgi (Toq semestrlar)'),
         ('spring', 'Bahorgi (Juft semestrlar)'),
     )
+    EDUCATION_FORM_CHOICES = [
+        ('kunduzgi', 'Kunduzgi'),
+        ('sirtqi', 'Sirtqi'),
+    ]
     academic_year = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE)
     semester = models.CharField(max_length=10, choices=SEMESTER_SEASON, default='autumn')
+    education_form = models.CharField(
+        max_length=20,
+        choices=EDUCATION_FORM_CHOICES,
+        default='kunduzgi',
+        verbose_name="Ta'lim shakli"
+    )
     weekday = models.ForeignKey('kadrlar.Weekday', on_delete=models.CASCADE)
     timeslot = models.ForeignKey('kadrlar.TimeSlot', on_delete=models.CASCADE)
 
@@ -326,8 +344,8 @@ class TimeTable(models.Model):
         verbose_name_plural = "Dars jadvallari"
         constraints = [
             models.UniqueConstraint(
-                fields=['academic_year', 'weekday', 'timeslot', 'teacher'],
-                name='unique_teacher_slot'
+                fields=['academic_year', 'education_form', 'weekday', 'timeslot', 'teacher'],
+                name='unique_teacher_slot_v2'
             ),
         ]
 
@@ -438,5 +456,71 @@ class ScheduleError(models.Model):
 
     def __str__(self):
         return f"Error: {self.workload} - {self.reason}"
+
+
+# =============================================================================
+# 📅 SESSIYA DAVRLARI (Kunduzgi va Sirtqi uchun)
+# =============================================================================
+class SessionPeriod(models.Model):
+    """
+    Har bir ta'lim shakli va kurs uchun dars davri.
+    Masalan:
+      - Kunduzgi 1-kurs: 02.09 — 25.12 (15 hafta)
+      - Sirtqi 1-kurs:   04.11 — 30.11 (4 hafta)
+      - Sirtqi 2-kurs:   01.12 — 28.12 (4 hafta)
+    """
+    SEMESTER_SEASON = (
+        ('autumn', 'Kuzgi (Toq semestrlar)'),
+        ('spring', 'Bahorgi (Juft semestrlar)'),
+    )
+    EDUCATION_FORM_CHOICES = [
+        ('kunduzgi', 'Kunduzgi'),
+        ('sirtqi', 'Sirtqi'),
+    ]
+    COURSE_CHOICES = (
+        (1, '1-kurs'), (2, '2-kurs'), (3, '3-kurs'), (4, '4-kurs'), (5, '5-kurs'),
+    )
+
+    academic_year = models.ForeignKey(
+        'students.AcademicYear',
+        on_delete=models.CASCADE,
+        verbose_name="O'quv yili"
+    )
+    semester = models.CharField(
+        max_length=10,
+        choices=SEMESTER_SEASON,
+        default='autumn',
+        verbose_name="Mavsum"
+    )
+    education_form = models.CharField(
+        max_length=20,
+        choices=EDUCATION_FORM_CHOICES,
+        default='kunduzgi',
+        verbose_name="Ta'lim shakli"
+    )
+    course = models.IntegerField(
+        choices=COURSE_CHOICES,
+        verbose_name="Kurs"
+    )
+    start_date = models.DateField(verbose_name="Boshlanish sanasi")
+    end_date = models.DateField(verbose_name="Tugash sanasi")
+    weeks_count = models.PositiveIntegerField(
+        verbose_name="Hafta soni",
+        help_text="Kunduzgi: 12-15, Sirtqi: 3-4"
+    )
+
+    class Meta:
+        verbose_name = "Sessiya davri"
+        verbose_name_plural = "Sessiya davrlari"
+        unique_together = ['academic_year', 'semester', 'education_form', 'course']
+        ordering = ['academic_year', 'semester', 'education_form', 'course']
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.start_date and self.end_date and self.start_date >= self.end_date:
+            raise ValidationError("Boshlanish sanasi tugash sanasidan oldin bo'lishi kerak.")
+
+    def __str__(self):
+        return f"{self.get_education_form_display()} {self.course}-kurs | {self.start_date} — {self.end_date} ({self.weeks_count} hafta)"
 
 

@@ -1,15 +1,16 @@
 from django.db import transaction
 from django.db.models import Count
-from education.models import TimeTable, ScheduleError, Room, Stream
+from education.models import TimeTable, ScheduleError, Room, Stream, SessionPeriod
 from kadrlar.models import Weekday, TimeSlot, TeacherAvailability
 
 
 class ScheduleGeneratorService:
-    WEEKS_IN_SEMESTER = 15
+    WEEKS_IN_SEMESTER = 15  # Default kunduzgi uchun
 
-    def __init__(self, year_id, season, shift1_levels=None, shift2_levels=None):
+    def __init__(self, year_id, season, shift1_levels=None, shift2_levels=None, education_form='kunduzgi'):
         self.year_id = year_id
         self.season = season
+        self.education_form = education_form
         self.shift1_levels = shift1_levels if shift1_levels is not None else [1, 4]
         self.shift2_levels = shift2_levels if shift2_levels is not None else [2, 3]
 
@@ -17,17 +18,50 @@ class ScheduleGeneratorService:
         self.timeslots = list(TimeSlot.objects.order_by('start_time'))
         self.rooms = list(Room.objects.filter(is_active=True).order_by('capacity'))
 
+        # O'qituvchi bo'sh vaqtlari keshi (soatbay uchun)
         self.teacher_availability_cache = set()
         availabilities = TeacherAvailability.objects.all().prefetch_related('timeslots')
         for av in availabilities:
             for slot in av.timeslots.all():
                 self.teacher_availability_cache.add((av.teacher_id, av.weekday_id, slot.id))
 
+        # SessionPeriod keshi (kurs -> hafta soni)
+        self.session_weeks_cache = {}
+        periods = SessionPeriod.objects.filter(
+            academic_year_id=self.year_id,
+            semester=self.season,
+            education_form=self.education_form
+        )
+        for p in periods:
+            self.session_weeks_cache[p.course] = p.weeks_count
+
         self.matrix_teacher = set()
         self.matrix_group = set()
         self.matrix_room = set()
         self.schedule_map = []
         self.errors = []
+
+        # Boshqa ta'lim shaklining dars jadvalidan teacher/room bandligini yuklash
+        # (Kunduzgi generatsiya qilganda sirtqi jadval inobatga olinadi va aksincha)
+        self._load_cross_form_conflicts()
+
+    def _load_cross_form_conflicts(self):
+        """
+        Boshqa ta'lim shakli bo'yicha mavjud jadvaldan o'qituvchi va xona
+        bandligini matrix'ga qo'shadi. Bu kunduzgi va sirtqi dars vaqtlari
+        bir-biriga to'g'ri kelmasligi uchun zarur.
+        """
+        other_form = 'sirtqi' if self.education_form == 'kunduzgi' else 'kunduzgi'
+        existing = TimeTable.objects.filter(
+            academic_year_id=self.year_id,
+            semester=self.season,
+            education_form=other_form
+        ).values_list('weekday_id', 'timeslot_id', 'teacher_id', 'room_id')
+
+        for weekday_id, timeslot_id, teacher_id, room_id in existing:
+            self.matrix_teacher.add((weekday_id, timeslot_id, teacher_id))
+            if room_id:
+                self.matrix_room.add((weekday_id, timeslot_id, room_id))
 
     def get_target_semesters(self):
         return [1, 3, 5, 7, 9] if self.season == 'autumn' else [2, 4, 6, 8, 10]
@@ -37,6 +71,7 @@ class ScheduleGeneratorService:
         streams = Stream.objects.filter(
             workload__plan_subjects__education_plan__academic_year_id=self.year_id,
             workload__plan_subjects__semester__in=semesters,
+            workload__plan_subjects__education_plan__education_form=self.education_form,
             teacher__isnull=False
         ).select_related(
             'workload', 'workload__subject', 'teacher'
@@ -47,10 +82,9 @@ class ScheduleGeneratorService:
         ).distinct()
         return list(streams)
 
-    # --- YANGI YORDAMCHI METOD ---
+    # --- YORDAMCHI METOD ---
     def get_stream_course(self, stream):
         """Stream qaysi kursga tegishliligini O'quv Rejasidan aniqlaydi"""
-        # Workload orqali PlanSubject, u orqali EducationPlan ga chiqamiz
         plan_subject = stream.workload.plan_subjects.first()
         if plan_subject and plan_subject.education_plan:
             return plan_subject.education_plan.course
@@ -59,13 +93,17 @@ class ScheduleGeneratorService:
     # -----------------------------
 
     def get_weeks_duration(self, stream):
-        # Kursni EducationPlan dan olamiz
+        """SessionPeriod dan dinamik hafta sonini olish"""
         level = self.get_stream_course(stream)
 
-        # 5-kurslar (Sirtqi) uchun 4 hafta
-        if level == 5:
-            return 4
-        return self.WEEKS_IN_SEMESTER
+        # Avval keshdan qidiramiz
+        if level in self.session_weeks_cache:
+            return self.session_weeks_cache[level]
+
+        # Kesh topilmasa, ta'lim shakliga qarab default
+        if self.education_form == 'sirtqi':
+            return 4  # Sirtqi default: 4 hafta
+        return self.WEEKS_IN_SEMESTER  # Kunduzgi default: 15 hafta
 
     def calculate_pairs(self, stream):
         plan_subject = stream.workload.plan_subjects.first()
@@ -88,7 +126,6 @@ class ScheduleGeneratorService:
     def get_student_count(self, groups):
         count = 0
         for g in groups:
-            # Talabalar sonini hisoblash
             c = 0
             if hasattr(g, 'student_count') and g.student_count > 0:
                 c = g.student_count
@@ -106,26 +143,28 @@ class ScheduleGeneratorService:
             teacher_score = 1000 if emp_type == 'hourly' else 0
             type_score = 50 if stream.lesson_type == 'lab' else 0
 
-            # Kursni ham inobatga olish (5-kurslarni oldinroq qo'yish)
             level = self.get_stream_course(stream)
-            level_score = 500 if level == 5 else 0
+            level_score = 500 if self.education_form == 'sirtqi' else 0
 
             return -(group_score + teacher_score + type_score + level_score)
 
         return sorted(streams, key=priority_key)
 
     def get_allowed_slots_for_stream(self, stream):
-        # Kursni aniqlaymiz (Group modelidan emas, EducationPlan dan)
+        """
+        Sirtqi talabalar uchun smena cheklovi yo'q (kun bo'yi dars).
+        Kunduzgi talabalar uchun shift1/shift2 bo'yicha cheklov saqlanadi.
+        """
         level = self.get_stream_course(stream)
         all_slots = self.timeslots
 
         if len(all_slots) < 4: return all_slots
 
-        # 5-kurs (Sirtqi) uchun cheklov yo'q
-        if level == 5:
+        # Sirtqi talabalar uchun smena cheklovi yo'q - kun bo'yi dars
+        if self.education_form == 'sirtqi':
             return all_slots
 
-            # Smena tekshiruvi
+        # Kunduzgi: Smena tekshiruvi
         is_shift1 = level in self.shift1_levels
         is_shift2 = level in self.shift2_levels
 
@@ -223,9 +262,10 @@ class ScheduleGeneratorService:
 
         self.schedule_map = []
         self.errors = []
-        self.matrix_teacher.clear()
-        self.matrix_group.clear()
-        self.matrix_room.clear()
+
+        # Cross-form konflikt matritsalarini saqlab qolish kerak - ularni tozalamaymiz
+        # Faqat yangi generatsiya jarayonidagi bandlikni saqlaymiz
+        # Eslatma: __init__ da cross-form konfliktlar allaqachon yuklangan
 
         for stream in streams:
             pairs_needed = self.calculate_pairs(stream)
@@ -257,7 +297,6 @@ class ScheduleGeneratorService:
 
             missing = pairs_needed - len(allocated)
             if missing > 0:
-                # Xatoliklar logikasi (o'zgarishsiz)
                 if reasons:
                     top_reason = max(reasons, key=reasons.get)
                     detail = f"{missing} ta para qolib ketdi. Sabab: {top_reason}"
@@ -272,13 +311,20 @@ class ScheduleGeneratorService:
 
     def _save_to_db(self):
         with transaction.atomic():
-            TimeTable.objects.filter(academic_year_id=self.year_id, semester=self.season).delete()
+            # Faqat shu ta'lim shakli bo'yicha tozalash
+            TimeTable.objects.filter(
+                academic_year_id=self.year_id,
+                semester=self.season,
+                education_form=self.education_form
+            ).delete()
+
             objs = []
             for item in self.schedule_map:
                 for group_id in item['group_ids']:
                     objs.append(TimeTable(
                         academic_year_id=self.year_id,
                         semester=self.season,
+                        education_form=self.education_form,
                         weekday=item['weekday'],
                         timeslot=item['timeslot'],
                         stream=item['stream'],
