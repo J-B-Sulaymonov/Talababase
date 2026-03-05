@@ -82,10 +82,77 @@
     color: #495057 !important;
     text-align: left;
     padding-left: 5px !important;
+
+    /* Uzun yozuvlarni kesish uchun (masalan Fan nomi) */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
 }
 
 .select2-container--default .select2-selection--single .select2-selection__arrow {
     height: 32px !important;
+}
+
+/* -------------------------------------------
+   Select2 Multiple (Tanlov fanlari uchun) fix
+---------------------------------------------- */
+.inline-group .tabular .select2-container .select2-selection--multiple {
+    min-height: 34px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    background-color: #fff;
+}
+
+/* Ichidagi qidiruv inputini oddiy inputlardan (borderli) farqlash uchun reset */
+.inline-group .tabular .select2-container .select2-selection--multiple .select2-search__field {
+    border: none !important;
+    height: 28px !important;
+    padding: 0 !important;
+    margin-top: 3px !important;
+    margin-left: 5px !important;
+    width: auto !important;
+    min-width: 100px;
+    box-shadow: none !important;
+    text-align: left !important;
+}
+
+.inline-group .tabular .select2-container .select2-selection--multiple .select2-selection__rendered {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 2px !important;
+    gap: 2px;
+    /* Teglar orasida masofa qolishi uchun */
+}
+
+.inline-group .tabular .select2-container .select2-selection--multiple .select2-selection__choice {
+    background-color: #e9ecef !important;
+    border: 1px solid #ced4da !important;
+    padding: 2px 2px 2px 6px !important;
+    margin: 0 !important;
+    /* Gap ga ishonamiz */
+    color: #495057 !important;
+    font-size: 13px !important;
+
+    /* Uzun matnlarni sig'dirish va oxirini ... bilan kesish */
+    max-width: 100% !important;
+    /* Maxsus konteyner kengligiga moslashadi */
+    display: flex !important;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+/* Haqiqiy matn saqlanadigan ichki elementni qisqartirish */
+.inline-group .tabular .select2-container .select2-selection--multiple .select2-selection__choice__display {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-block !important;
+    max-width: 150px !important;
+    /* Ekran sig'imi uchun xavfsiz kenglik */
+    padding-right: 5px;
 }
 
 /* ==========================================================================
@@ -97,14 +164,55 @@
 .inline-group .tabular .column-subject,
 .inline-group .tabular .field-alternative_subjects,
 .inline-group .tabular .column-alternative_subjects {
-    width: 300px !important;
-    min-width: 250px;
+    width: 250px !important;
+    min-width: 200px !important;
+    max-width: 250px !important;
+    /* MAJBURIY KENGAYIB KETMASLIGI UCHUN */
+    white-space: normal;
+    /* Yoki kerak bo'lsa nowrap */
+}
+
+/* Tanlov fanlari Select2 alohida kenglik talab qilishi mumkin (chunki multiple select) */
+.inline-group .tabular .field-alternative_subjects .select2-container,
+.inline-group .tabular .field-alternative_subjects select,
+.inline-group .tabular .field-subject .select2-container,
+.inline-group .tabular .field-subject select {
+    min-width: 200px !important;
+    max-width: 240px !important;
+    /* QAT'IY KENGAYIB KETMASLIK UCHUN */
+    width: 240px !important;
 }
 
 /* O'rta ustunlar: Fan turi, Semestr */
-.inline-group .tabular .field-subject_type,
-.inline-group .tabular .field-semester {
-    width: 130px !important;
+.inline-group .tabular th.column-subject_type,
+.inline-group .tabular td.field-subject_type,
+.inline-group .tabular th.column-semester,
+.inline-group .tabular td.field-semester {
+    width: 115px !important;
+    min-width: 95px !important;
+    max-width: 155px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Ichidagi dinamik yaratiladigan Select2 qoplamalarini boshqarish */
+.inline-group .tabular td.field-subject_type .select2-container,
+.inline-group .tabular td.field-semester .select2-container,
+.inline-group .tabular td.field-subject_type .select2-selection,
+.inline-group .tabular td.field-semester .select2-selection {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.inline-group .tabular td.field-subject_type .select2-selection__rendered,
+.inline-group .tabular td.field-semester .select2-selection__rendered {
+    font-size: 12px !important;
+    padding-left: 4px !important;
+    padding-right: 15px !important;
 }
 
 /* Kichik raqamli ustunlar: Soatlar va Kredit */
