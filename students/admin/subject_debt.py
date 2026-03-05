@@ -142,22 +142,27 @@ class SubjectDebtAdmin(admin.ModelAdmin):
         cl = response.context_data['cl']
         qs = cl.queryset  # Bu yerda filterlangan queryset keladi (status bo'yicha ham)
 
-        total_count = qs.count()
-        metrics = qs.aggregate(
-            jami_qarz=Sum('amount'),
-            jami_tolov=Sum('amount_summ')
-        )
+        # Ruxsatlarni tekshirish: Superuser yoki 'Iskandar' useri
+        show_stats = request.user.is_superuser or request.user.username.lower() == 'iskandar'
+        response.context_data['show_stats'] = show_stats
 
-        total_debt = metrics['jami_qarz'] or 0
-        total_paid = metrics['jami_tolov'] or 0
-        remaining = total_debt - total_paid
+        if show_stats:
+            total_count = qs.count()
+            metrics = qs.aggregate(
+                jami_qarz=Sum('amount'),
+                jami_tolov=Sum('amount_summ')
+            )
 
-        response.context_data['footer_stats'] = {
-            'total_count': total_count,
-            'total_debt': total_debt,
-            'total_paid': total_paid,
-            'remaining': remaining
-        }
+            total_debt = metrics['jami_qarz'] or 0
+            total_paid = metrics['jami_tolov'] or 0
+            remaining = total_debt - total_paid
+
+            response.context_data['footer_stats'] = {
+                'total_count': total_count,
+                'total_debt': total_debt,
+                'total_paid': total_paid,
+                'remaining': remaining
+            }
         return response
 
     # --- DISPLAY METODLARI ---
