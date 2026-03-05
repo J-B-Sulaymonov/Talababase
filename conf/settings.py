@@ -1,10 +1,19 @@
 import os
+import environ
 from pathlib import Path
-BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-gg4wpc4^gc83mroq##9ia#*sh804poaqbak&^!jg&4h=%^l@mu'
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+SECRET_KEY = env('SECRET_KEY')
+
+DEBUG = env('DEBUG')
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 INSTALLED_APPS = [
     'nested_admin',
     'jazzmin',
@@ -23,7 +32,9 @@ INSTALLED_APPS = [
     'kadrlar',
     'education',
     'finance',
-    # 'academy',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -57,14 +68,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'conf.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'students',
-        'USER': 'postgres',
-        'PASSWORD': 'Ab0199797',
-        'HOST': '192.168.0.254',
-        'PORT': '5432',
-    }
+    'default': env.db('DATABASE_URL', default=f"psql://{env('DB_USER')}:{env('DB_PASSWORD')}@{env('DB_HOST')}:{env('DB_PORT')}/{env('DB_NAME')}")
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -138,9 +142,6 @@ JAZZMIN_SETTINGS = {
         "kadrlar.OrganizationStructure",
         "kadrlar.OrganizationStructure",
         "kadrlar.SimpleStructure",
-        # Academy Hidden Models
-        "academy.Level", "academy.Teacher", "academy.WeekDay",
-        "academy.Enrollment", "academy.StudentPayment", "academy.TeacherSalary",
     ],
     "custom_links": {
         "students": [
@@ -158,19 +159,8 @@ JAZZMIN_SETTINGS = {
                 "permissions": ["kadrlar.view_employee"],
             },
             ],
-        "academy": [
-            {
-                "name": "Sozlamalar",
-                "url": "admin:academy_general",
-                "icon": "fas fa-cogs",
-                "permissions": ["academy.view_teacher"],
-            },
-        ]
     },
     "order_with_respect_to": [
-        "academy",
-        "academy.Group",
-        "academy.Student",
         "students",
         "kadrlar",
         "kadrlar.Department",
@@ -193,12 +183,91 @@ JAZZMIN_SETTINGS = {
         "kadrlar.Department": "fas fa-sitemap",
         "kadrlar.Employee": "fas fa-id-card",
         "kadrlar.Teacher": "fas fa-chalkboard-teacher",
-
-        "academy": "fas fa-university",
-        "academy.Group": "fas fa-users",
-        "academy.Student": "fas fa-user-graduate",
-        "academy.Teacher": "fas fa-chalkboard-teacher",
-        "academy.Level": "fas fa-layer-group",
     },
     "use_google_fonts_cdn": True,
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+}
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Token': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    },
+    'USE_SESSION_AUTH': False,
+}
+
+# =========================================================
+# LOGGING CONFIGURATION
+# =========================================================
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file_error': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'error.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'file_general': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'general.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file_general', 'file_error'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file_error'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'talababase': {
+            'handlers': ['console', 'file_general', 'file_error'],
+            'level': 'INFO',
+        }
+    },
 }

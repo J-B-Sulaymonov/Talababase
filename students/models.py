@@ -5,6 +5,10 @@ from django.utils import timezone
 from smart_selects.db_fields import ChainedForeignKey
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
+from conf.choices import EducationFormChoices as SharedEducationFormChoices
+from conf.choices import GenderChoices as SharedGenderChoices
+from conf.choices import COURSE_CHOICES as SHARED_COURSE_CHOICES
+from conf.choices import SEMESTER_CHOICES as SHARED_SEMESTER_CHOICES
 
 # =============================================================================
 # 🌍 JOYLAShUV MODELLARI
@@ -158,9 +162,7 @@ class Order(models.Model):
 # 👩‍🎓 TALABA MODELI
 # =============================================================================
 class Student(models.Model):
-    class GenderChoices(models.TextChoices):
-        MALE = 'erkak', "Erkak"
-        FEMALE = 'ayol', "Ayol"
+    GenderChoices = SharedGenderChoices
 
     class StatusChoices(models.TextChoices):
         ACTIVE = 'active', "O'qiydi"
@@ -168,10 +170,7 @@ class Student(models.Model):
         EXPELLED = 'expelled', "Chetlashtirilgan"
         GRADUATED = 'graduated', "Bitirgan"
 
-    class EducationFormChoices(models.TextChoices):
-        FULL_TIME = 'kunduzgi', "Kunduzgi"
-        PART_TIME = 'sirtqi', "Sirtqi"
-        EVENING = 'kechki', "Kechki"
+    EducationFormChoices = SharedEducationFormChoices
 
     class EducationTypeChoices(models.TextChoices):
         GRANT = 'grant', "Davlat granti"
@@ -186,11 +185,11 @@ class Student(models.Model):
         CERTIFICATE = 'shahodatnoma', "Shahodatnoma"
         DIPLOMA = 'diplom', "Diplom"
 
-    SEMESTER_CHOICES = [(i, f"{i}-semestr") for i in range(1, 11)]
+    SEMESTER_CHOICES = SHARED_SEMESTER_CHOICES
 
     full_name = models.CharField("F.I.Sh.", max_length=255)
     student_hemis_id = models.CharField("Talaba ID", max_length=100, unique=True, null=True, blank=True)
-    COURSE_CHOICES = [(i, f"{i}-kurs") for i in range(1, 6)]
+    COURSE_CHOICES = SHARED_COURSE_CHOICES
     course_year = models.PositiveSmallIntegerField("Kursi", choices=COURSE_CHOICES, default=1)
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Guruh")
     education_type = models.CharField(

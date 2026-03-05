@@ -3,22 +3,12 @@ from django.db import models
 from django.utils import timezone
 from kadrlar.models import Teacher
 from students.models import Specialty, AcademicYear, Subject, Group
-
+from conf.choices import EducationFormChoices as SharedEducationFormChoices
+from conf.choices import COURSE_CHOICES as SHARED_COURSE_CHOICES
 
 class EducationPlan(models.Model):
-    COURSE_CHOICES = (
-        (1, '1-kurs'),
-        (2, '2-kurs'),
-        (3, '3-kurs'),
-        (4, '4-kurs'),
-        (5, '5-kurs'),
-    )
-    FORM_CHOICES = [
-        ('kunduzgi', 'Kunduzgi'),
-        ('sirtqi', 'Sirtqi'),
-        ('kechki', 'Kechki'),
-        ('masofaviy', 'Masofaviy'),
-    ]
+    COURSE_CHOICES = SHARED_COURSE_CHOICES
+    FORM_CHOICES = [(c.value, c.label) for c in SharedEducationFormChoices]
     specialty = models.ForeignKey(
         Specialty,
         on_delete=models.CASCADE,
@@ -316,8 +306,8 @@ class TimeTable(models.Model):
         ('spring', 'Bahorgi (Juft semestrlar)'),
     )
     EDUCATION_FORM_CHOICES = [
-        ('kunduzgi', 'Kunduzgi'),
-        ('sirtqi', 'Sirtqi'),
+        (SharedEducationFormChoices.FULL_TIME.value, SharedEducationFormChoices.FULL_TIME.label),
+        (SharedEducationFormChoices.PART_TIME.value, SharedEducationFormChoices.PART_TIME.label),
     ]
     academic_year = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE)
     semester = models.CharField(max_length=10, choices=SEMESTER_SEASON, default='autumn')
@@ -474,12 +464,10 @@ class SessionPeriod(models.Model):
         ('spring', 'Bahorgi (Juft semestrlar)'),
     )
     EDUCATION_FORM_CHOICES = [
-        ('kunduzgi', 'Kunduzgi'),
-        ('sirtqi', 'Sirtqi'),
+        (SharedEducationFormChoices.FULL_TIME.value, SharedEducationFormChoices.FULL_TIME.label),
+        (SharedEducationFormChoices.PART_TIME.value, SharedEducationFormChoices.PART_TIME.label),
     ]
-    COURSE_CHOICES = (
-        (1, '1-kurs'), (2, '2-kurs'), (3, '3-kurs'), (4, '4-kurs'), (5, '5-kurs'),
-    )
+    COURSE_CHOICES = SHARED_COURSE_CHOICES
 
     academic_year = models.ForeignKey(
         'students.AcademicYear',

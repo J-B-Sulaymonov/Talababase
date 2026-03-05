@@ -29,11 +29,6 @@ class Department(models.Model):
         verbose_name="Kafedra yoki Bo'lim Rahbari",
         help_text="Ushbu tuzilmani (kafedra yoki bo'limni) boshqaradigan user"
     )
-    head_manager = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='managed_department',
-        verbose_name="Kafedra yoki Bo'lim Rahbari"
-    )
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
