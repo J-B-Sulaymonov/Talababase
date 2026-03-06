@@ -1,6 +1,7 @@
 {% load humanize %}
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,15 +10,21 @@
 
     <style>
         :root {
-            --primary-color: #2c3e50; /* Asosiy to'q ko'k */
-            --accent-color: #3498db;  /* Yorqin ko'k */
-            --bg-color: #f4f6f9;      /* Orqa fon */
-            --card-bg: #ffffff;       /* Karta foni */
-            --text-main: #2d3436;     /* Asosiy matn */
-            --text-secondary: #636e72; /* Ikkilamchi matn */
+            --primary-color: #2c3e50;
+            /* Asosiy to'q ko'k */
+            --accent-color: #3498db;
+            /* Yorqin ko'k */
+            --bg-color: #f4f6f9;
+            /* Orqa fon */
+            --card-bg: #ffffff;
+            /* Karta foni */
+            --text-main: #2d3436;
+            /* Asosiy matn */
+            --text-secondary: #636e72;
+            /* Ikkilamchi matn */
             --border-radius: 12px;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-            --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
         }
 
         body {
@@ -63,7 +70,9 @@
             color: var(--accent-color);
         }
 
-        .back-button i { margin-right: 8px; }
+        .back-button i {
+            margin-right: 8px;
+        }
 
         h1 {
             font-size: 1.8rem;
@@ -80,7 +89,7 @@
             box-shadow: var(--shadow-sm);
             margin-bottom: 25px;
             overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.03);
+            border: 1px solid rgba(0, 0, 0, 0.03);
             transition: transform 0.2s;
         }
 
@@ -179,12 +188,25 @@
             vertical-align: middle;
         }
 
-        .modern-table tbody tr:last-child td { border-bottom: none; }
-        .modern-table tbody tr:hover { background-color: #f8f9fc; }
+        .modern-table tbody tr:last-child td {
+            border-bottom: none;
+        }
 
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .font-bold { font-weight: 600; }
+        .modern-table tbody tr:hover {
+            background-color: #f8f9fc;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .font-bold {
+            font-weight: 600;
+        }
 
         /* --- STATUS BADGES --- */
         .badge {
@@ -197,17 +219,42 @@
             white-space: nowrap;
         }
 
-        .badge-success { background: #e6fcf5; color: #0ca678; }
-        .badge-warning { background: #fff9db; color: #f08c00; }
-        .badge-danger { background: #fff5f5; color: #fa5252; }
-        .badge-info { background: #e7f5ff; color: #1c7ed6; }
-        .badge-gray { background: #f1f3f5; color: #495057; }
+        .badge-success {
+            background: #e6fcf5;
+            color: #0ca678;
+        }
+
+        .badge-warning {
+            background: #fff9db;
+            color: #f08c00;
+        }
+
+        .badge-danger {
+            background: #fff5f5;
+            color: #fa5252;
+        }
+
+        .badge-info {
+            background: #e7f5ff;
+            color: #1c7ed6;
+        }
+
+        .badge-gray {
+            background: #f1f3f5;
+            color: #495057;
+        }
 
         /* Maxsus ranglar */
-        .text-success { color: #0ca678; }
-        .text-danger { color: #fa5252; }
+        .text-success {
+            color: #0ca678;
+        }
+
+        .text-danger {
+            color: #fa5252;
+        }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -236,7 +283,8 @@
                 <div class="info-item">
                     <span class="info-label">Telefon raqam</span>
                     <span class="info-value">
-                        <i class="fas fa-phone-alt" style="font-size: 12px; color: #aaa;"></i> {{ student.phone_number }}
+                        <i class="fas fa-phone-alt" style="font-size: 12px; color: #aaa;"></i> {{ student.phone_number
+                        }}
                         {% if student.phone_number_2 %}<br>{{ student.phone_number_2 }}{% endif %}
                     </span>
                 </div>
@@ -265,15 +313,15 @@
                     <span class="info-label">Status</span>
                     <div>
                         {% if student.status == 'active' %}
-                            <span class="badge badge-success">O'qiydi</span>
+                        <span class="badge badge-success">O'qiydi</span>
                         {% elif student.status == 'academic' %}
-                            <span class="badge badge-warning">Akademik ta'til</span>
+                        <span class="badge badge-warning">Akademik ta'til</span>
                         {% elif student.status == 'expelled' %}
-                            <span class="badge badge-danger">Chetlashtirilgan</span>
+                        <span class="badge badge-danger">Chetlashtirilgan</span>
                         {% elif student.status == 'graduated' %}
-                            <span class="badge badge-info">Bitirgan</span>
+                        <span class="badge badge-info">Bitirgan</span>
                         {% else %}
-                            <span class="badge badge-gray">{{ student.status }}</span>
+                        <span class="badge badge-gray">{{ student.status }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -320,7 +368,8 @@
                 </div>
                 <div class="info-item">
                     <span class="info-label">Amal qilish muddati</span>
-                    <span class="info-value">{{ student.passport_issue_date|date:"d.m.Y" }} — {{ student.passport_expiry_date|date:"d.m.Y" }}</span>
+                    <span class="info-value">{{ student.passport_issue_date|date:"d.m.Y" }} — {{
+                        student.passport_expiry_date|date:"d.m.Y" }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Doimiy manzil</span>
@@ -356,9 +405,9 @@
                             <td>{{ contract.contract_date|date:"d.m.Y" }}</td>
                             <td>
                                 {% if contract.grant_type != 'none' %}
-                                    <span class="badge badge-success">{{ contract.get_grant_type_display }}</span>
+                                <span class="badge badge-success">{{ contract.get_grant_type_display }}</span>
                                 {% else %}
-                                    <span style="color: #ccc;">-</span>
+                                <span style="color: #ccc;">-</span>
                                 {% endif %}
                             </td>
                             <td class="text-right font-bold">{{ contract.amount|intcomma }} so'm</td>
@@ -392,7 +441,8 @@
                         {% for payment in payments %}
                         <tr>
                             <td>{{ payment.payment_date|date:"d.m.Y" }}</td>
-                            <td>{{ payment.contract.contract_number }} <span style="font-size: 11px; color:#888;">({{ payment.contract.academic_year.name }})</span></td>
+                            <td>{{ payment.contract.contract_number }} <span style="font-size: 11px; color:#888;">({{
+                                    payment.contract.academic_year.name }})</span></td>
                             <td style="font-size: 13px; color: #666;">{{ payment.description|default:"-" }}</td>
                             <td class="text-right font-bold text-success">+ {{ payment.amount|intcomma }} so'm</td>
                         </tr>
@@ -409,7 +459,8 @@
         {% if debts %}
         <div class="detail-card">
             <div class="card-header">
-                <div class="card-header-icon" style="background: #fff5f5; color: #fa5252;"><i class="fas fa-exclamation-circle"></i></div>
+                <div class="card-header-icon" style="background: #fff5f5; color: #fa5252;"><i
+                        class="fas fa-exclamation-circle"></i></div>
                 <h2 style="color: #fa5252;">Fan qarzdorliklari</h2>
             </div>
             <div class="table-responsive">
@@ -429,30 +480,33 @@
                         {% for debt in debts %}
                         <tr>
                             <td class="font-bold">{{ debt.subject.name }}</td>
-                            <td>{{ debt.academic_year.name }} <span style="color:#aaa;">/</span> {{ debt.semester }}-sem</td>
+                            <td>{{ debt.academic_year.name }} <span style="color:#aaa;">/</span> {{ debt.semester }}-sem
+                            </td>
                             <td>{{ debt.get_debt_type_display }}</td>
                             <td>
                                 {% if debt.status == 'yopilmadi' %}
-                                    <span class="badge badge-danger">Yopilmadi</span>
+                                <span class="badge badge-danger">Yopilmadi</span>
+                                {% elif debt.status == 'jarayonda' %}
+                                <span class="badge badge-warning">Jarayonda</span>
                                 {% else %}
-                                    <span class="badge badge-success">Yopildi</span>
+                                <span class="badge badge-success">Yopildi</span>
                                 {% endif %}
                             </td>
                             <td class="text-right font-bold">{{ debt.amount|intcomma }}</td>
 
                             <td class="text-right" style="color: #0ca678;">
                                 {% if debt.paid_amount > 0 %}
-                                    +{{ debt.paid_amount|intcomma }}
+                                +{{ debt.paid_amount|intcomma }}
                                 {% else %}
-                                    <span style="color: #ccc;">-</span>
+                                <span style="color: #ccc;">-</span>
                                 {% endif %}
                             </td>
 
                             <td class="text-right font-bold text-danger">
                                 {% if debt.remaining_debt > 0 %}
-                                    {{ debt.remaining_debt|intcomma }} so'm
+                                {{ debt.remaining_debt|intcomma }} so'm
                                 {% else %}
-                                    <span class="badge badge-success"><i class="fas fa-check"></i> 0</span>
+                                <span class="badge badge-success"><i class="fas fa-check"></i> 0</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -497,4 +551,5 @@
     </div>
 
 </body>
+
 </html>

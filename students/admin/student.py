@@ -581,7 +581,7 @@ class StudentAdmin(admin.ModelAdmin):
     # ---------------------------------------------------------
 
     list_display = (
-        'student_hemis_id',
+        'display_hemis_id',
         'full_name',
         # 'phone_number', # Kerak bo'lsa yoqing
         'education_form',
@@ -599,7 +599,6 @@ class StudentAdmin(admin.ModelAdmin):
         'get_subject_debt_paid',  # To'langan qismi
         'get_subject_debt_diff',  # Qoldiq qarz
         'get_open_debt_count',
-        'view_student_link',
     )
 
     list_filter = (
@@ -850,6 +849,18 @@ class StudentAdmin(admin.ModelAdmin):
                 obj.group.name
             )
         return "-"
+
+    # --- TALABA ID VA LINK ---
+    @admin.display(description="Talaba ID", ordering='student_hemis_id')
+    def display_hemis_id(self, obj):
+        url = reverse('admin:students_student_detail', args=[obj.pk])
+        return format_html(
+            '<div style="display: flex; justify-content: space-between; align-items: center; min-width: 140px;">'
+            '<span style="font-weight: bold; color: #333;">{}</span>'
+            '<a href="{}" style="color: #4361ee; font-size: 15px;" title="Batafsil ko\'rish"><i class="fas fa-eye"></i></a>'
+            '</div>',
+            obj.student_hemis_id, url
+        )
 
     # --- KONTRAKT DISPLAY ---
     @admin.display(description="kontrakt", ordering='current_contract_amount')
