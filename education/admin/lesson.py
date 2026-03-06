@@ -69,7 +69,7 @@ class WorkloadAdmin(admin.ModelAdmin):
     change_list_template = "admin/workload_change_list.html"
 
     class Media:
-        js = ('admin/js/workload.js',)
+        js = ('admin/js/workload_v12.js',)
         css = {
             'all': ('admin/css/workload_custom.css',)
         }
