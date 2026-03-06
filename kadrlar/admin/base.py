@@ -254,7 +254,6 @@ class OrderInline(admin.StackedInline):
 class TeacherAvailabilityInline(admin.StackedInline):
     model = TeacherAvailability
     extra = 0
-    min_num = 1
     max_num = 7
     verbose_name = "Bo'sh vaqt"
     verbose_name_plural = "O'qituvchining bo'sh vaqtlari"

@@ -16,7 +16,7 @@ class TeacherAdmin(admin.ModelAdmin):
     search_fields = ['employee__first_name', 'employee__last_name']
     
     def get_inlines(self, request, obj=None):
-        if obj and obj.work_type_hourly:
+        if obj:  # Obyekt saqlanganidan keyin barcha o'qituvchilarga (doimiy/soatbay) ko'rinadi
             return [TeacherAvailabilityInline]
         return []
     # 2. FORMA KO'RINISHI
