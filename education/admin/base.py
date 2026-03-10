@@ -124,10 +124,27 @@ class StreamInline(admin.TabularInline):
     fields = ('name', 'lesson_type', 'teacher', 'employment_type', 'groups', 'sub_groups')
     autocomplete_fields = ['teacher']
 
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if field and hasattr(field, 'widget'):
+            if db_field.name == 'name':
+                field.widget.attrs.update({'style': 'width: 120px;'})
+            elif db_field.name == 'lesson_type':
+                field.widget.attrs.update({'style': 'width: 120px;'})
+            elif db_field.name == 'employment_type':
+                field.widget.attrs.update({'style': 'width: 120px;'})
+        return field
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        field = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if field and hasattr(field, 'widget') and db_field.name == 'teacher':
+            field.widget.attrs.update({'style': 'width: 150px;'})
+        return field
+
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name in ["groups", "sub_groups"]:
             kwargs['widget'] = forms.SelectMultiple(attrs={
-                'style': 'width: 250px; height: 120px;',
+                'style': 'width: 150px; height: 120px;',
                 'class': 'browser-default'
             })
 

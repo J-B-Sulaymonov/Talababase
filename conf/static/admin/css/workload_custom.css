@@ -101,3 +101,22 @@
 .select2-container--default .select2-selection--single .select2-selection__rendered {
     color: #333333 !important;
 }
+
+/* ================================================= */
+/* ICONS BELOW SELECT FIX (STREAM INLINE)            */
+/* ================================================= */
+/* O'qituvchi ustunidagi select tagidan ikonkalarni pastga tushirish uchun */
+td.field-teacher {
+    min-width: 180px;
+}
+
+td.field-teacher .related-widget-wrapper {
+    display: block; /* Flex o'rniga block qildik yopishib qolmasligi uchun */
+    width: 100%;
+}
+
+td.field-teacher .related-widget-wrapper .select2-container {
+    width: 100% !important; 
+    display: block !important;
+    margin-bottom: 5px;
+}
