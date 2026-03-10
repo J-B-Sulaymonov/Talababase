@@ -188,7 +188,8 @@ class TimeTableAdmin(admin.ModelAdmin):
             unique_placed = len(set(item['stream'].id for item in schedule_map))
             success_percent = int((unique_placed / total_streams) * 100) if total_streams > 0 else 0
 
-            context = {
+            context = self.admin_site.each_context(request)
+            context.update({
                 'title': "Jadval Generatsiyasi (Simulyatsiya)",
                 'academic_years': AcademicYear.objects.all(),
                 'selected_year': int(year_id) if year_id else None,
@@ -207,10 +208,11 @@ class TimeTableAdmin(admin.ModelAdmin):
                 'has_view_permission': self.has_view_permission(request),
                 'site_header': self.admin_site.site_header,
                 'site_title': self.admin_site.site_title,
-            }
+            })
             return render(request, "admin/education/timetable/generate.html", context)
 
-        context = {
+        context = self.admin_site.each_context(request)
+        context.update({
             'title': "Avtomatik Jadval Generatori",
             'academic_years': AcademicYear.objects.all(),
             'selected_season': 'autumn',
@@ -221,7 +223,7 @@ class TimeTableAdmin(admin.ModelAdmin):
             'has_view_permission': self.has_view_permission(request),
             'site_header': self.admin_site.site_header,
             'site_title': self.admin_site.site_title,
-        }
+        })
         return render(request, "admin/education/timetable/generate.html", context)
 
 @admin.register(ScheduleError)
