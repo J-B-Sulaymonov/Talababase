@@ -493,7 +493,7 @@
                     <label class="form-label" for="academic_year"><i class="fas fa-calendar-alt"></i> O'quv yili</label>
                     <select name="academic_year" id="academic_year" class="form-select" required>
                         {% for year in academic_years %}
-                        <option value="{{ year.id }}" {% if selected_year==year.id %}selected{% endif %}>
+                        <option value="{{ year.id }}" {% if selected_year == year.id %}selected{% endif %}>
                             {{ year.name }}
                         </option>
                         {% endfor %}
@@ -503,9 +503,9 @@
                 <div>
                     <label class="form-label" for="season"><i class="fas fa-leaf"></i> Mavsum</label>
                     <select name="season" id="season" class="form-select" required>
-                        <option value="autumn" {% if selected_season=='autumn' %}selected{% endif %}>Kuzgi (1, 3, 5...)
+                        <option value="autumn" {% if selected_season == 'autumn' %}selected{% endif %}>Kuzgi (1, 3, 5...)
                         </option>
-                        <option value="spring" {% if selected_season=='spring' %}selected{% endif %}>Bahorgi (2, 4,
+                        <option value="spring" {% if selected_season == 'spring' %}selected{% endif %}>Bahorgi (2, 4,
                             6...)</option>
                     </select>
                 </div>
@@ -515,9 +515,9 @@
                         shakli</label>
                     <select name="education_form" id="education_form" class="form-select" onchange="toggleShifts()"
                         required>
-                        <option value="kunduzgi" {% if selected_education_form=='kunduzgi' %}selected{% endif %}>
+                        <option value="kunduzgi" {% if selected_education_form == 'kunduzgi' %}selected{% endif %}>
                             Kunduzgi</option>
-                        <option value="sirtqi" {% if selected_education_form=='sirtqi' %}selected{% endif %}>Sirtqi
+                        <option value="sirtqi" {% if selected_education_form == 'sirtqi' %}selected{% endif %}>Sirtqi
                         </option>
                     </select>
                 </div>
@@ -537,16 +537,14 @@
 
                         {% for i in "1234"|make_list %}
                         <label class="checkbox-label">
-                            <input type="checkbox" name="shift1_levels" value="{{ i }}" {% if i|add:"0" in
-                                selected_shift1 %}checked{% endif %}>
+                            <input type="checkbox" name="shift1_levels" value="{{ i }}" {% if i|add:"0" in selected_shift1 %}checked{% endif %}>
                             {{ i }}-kurs
                         </label>
                         {% endfor %}
 
                         <label class="checkbox-label" style="color:#d63384; font-weight:bold; margin-top: 5px;"
                             title="Kun bo'yi dars">
-                            <input type="checkbox" name="shift1_levels" value="5" {% if 5 in selected_shift1 %}checked{%
-                                endif %}>
+                            <input type="checkbox" name="shift1_levels" value="5" {% if 5 in selected_shift1 %}checked{% endif %}>
                             5 (Sirtqi)
                         </label>
                         <div style="font-size:10px; color:#999; margin-top:5px;">(1, 2, 3, 4 - paralar)</div>
@@ -559,15 +557,13 @@
 
                         {% for i in "1234"|make_list %}
                         <label class="checkbox-label">
-                            <input type="checkbox" name="shift2_levels" value="{{ i }}" {% if i|add:"0" in
-                                selected_shift2 %}checked{% endif %}>
+                            <input type="checkbox" name="shift2_levels" value="{{ i }}" {% if i|add:"0" in selected_shift2 %}checked{% endif %}>
                             {{ i }}-kurs
                         </label>
                         {% endfor %}
 
                         <label class="checkbox-label" style="color:#d63384; font-weight:bold; margin-top: 5px;">
-                            <input type="checkbox" name="shift2_levels" value="5" {% if 5 in selected_shift2 %}checked{%
-                                endif %}>
+                            <input type="checkbox" name="shift2_levels" value="5" {% if 5 in selected_shift2 %}checked{% endif %}>
                             5
                         </label>
                         <div style="font-size:10px; color:#999; margin-top:5px;">(3, 4, 5, 6 - paralar)</div>
