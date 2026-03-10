@@ -203,3 +203,31 @@ class StreamInline(admin.TabularInline):
                 formset.form = FilteredStreamForm
 
         return formset
+
+def education_general_view(request):
+    models_links = [
+        {"title": "Rejadagi fanlar", "subtitle": "PlanSubject", "url": reverse('admin:education_plansubject_changelist'), "icon": "fas fa-book-open"},
+        {"title": "Kichik guruhlar", "subtitle": "SubGroup", "url": reverse('admin:education_subgroup_changelist'), "icon": "fas fa-users-cog"},
+        {"title": "Auditoriyalar", "subtitle": "Room", "url": reverse('admin:education_room_changelist'), "icon": "fas fa-door-open"},
+        {"title": "Kunlik Dars Qaydi", "subtitle": "LessonLog", "url": reverse('admin:education_lessonlog_changelist'), "icon": "fas fa-clipboard-check"},
+        {"title": "Jadval xatolari", "subtitle": "ScheduleError", "url": reverse('admin:education_scheduleerror_changelist'), "icon": "fas fa-exclamation-circle"},
+        {"title": "Sessiya davrlari", "subtitle": "SessionPeriod", "url": reverse('admin:education_sessionperiod_changelist'), "icon": "fas fa-calendar-alt"},
+    ]
+
+    context = admin.site.each_context(request)
+    context.update({
+        'title': "O'quv bo'limi sozlamalari",
+        'models_links': models_links,
+    })
+
+    return render(request, 'admin/students/general.html', context)
+
+original_get_urls = admin.site.get_urls
+
+def get_urls():
+    custom_urls = [
+        path('education/general/', admin.site.admin_view(education_general_view), name='education_general'),
+    ]
+    return custom_urls + original_get_urls()
+
+admin.site.get_urls = get_urls

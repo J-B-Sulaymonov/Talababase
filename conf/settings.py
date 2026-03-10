@@ -141,7 +141,14 @@ JAZZMIN_SETTINGS = {
         "kadrlar.Position",
         "kadrlar.OrganizationStructure",
         "kadrlar.OrganizationStructure",
+        "kadrlar.OrganizationStructure",
         "kadrlar.SimpleStructure",
+        "education.PlanSubject",
+        "education.SubGroup",
+        "education.Room",
+        "education.LessonLog",
+        "education.ScheduleError",
+        "education.SessionPeriod",
     ],
     "custom_links": {
         "students": [
@@ -158,7 +165,14 @@ JAZZMIN_SETTINGS = {
                 "icon": "fas fa-chart-pie",
                 "permissions": ["kadrlar.view_employee"],
             },
-            ],
+        ],
+        "education": [
+            {
+                "name": "Sozlamalar",
+                "url": "admin:education_general",
+                "icon": "fas fa-cogs",
+            },
+        ],
     },
     "order_with_respect_to": [
         "students",
