@@ -1,4 +1,4 @@
-﻿from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from .education import GroupResource
 from .base import *
 # =============================================================================
@@ -1107,9 +1107,8 @@ class StudentAdmin(admin.ModelAdmin):
             # Qabul buyrug'ini olish
             qabul_order = None
             if 'qabul_order_number' in selected_fields or 'qabul_order_date' in selected_fields:
-                qabul_order = obj.order_set.filter(
+                qabul_order = obj.orders.filter(
                     order_type__name__icontains='qabul',
-                    is_deleted=False
                 ).order_by('-order_date').first()
 
             for col_num, field in enumerate(selected_fields, 1):
@@ -1197,7 +1196,7 @@ class StudentAdmin(admin.ModelAdmin):
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        response['Content-Disposition'] = f'attachment; filename=Students_Export_{timestamp}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename="Students_Export_{timestamp}.xlsx"'
         wb.save(response)
         return response
 
