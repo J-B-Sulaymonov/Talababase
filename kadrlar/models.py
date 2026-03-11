@@ -236,6 +236,8 @@ class Teacher(models.Model):
 
     work_type_permanent = models.BooleanField("Doimiy (Shtat)", default=False)
     work_type_hourly = models.BooleanField("Soatbay", default=False)
+    work_type_internal_part_time = models.BooleanField("Ichki o'rindosh", default=False)
+    work_type_external_part_time = models.BooleanField("Tashqi o'rindosh", default=False)
     # Students appdagi Subject modeliga bog'lanish
     subjects = models.ManyToManyField(
         'students.Subject',

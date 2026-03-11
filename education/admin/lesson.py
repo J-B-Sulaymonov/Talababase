@@ -32,6 +32,140 @@ class LessonLogAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return request.user.is_superuser
 
+    change_list_template = "admin/education/lessonlog/change_list.html"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('daily-batch/', self.admin_site.admin_view(self.daily_batch_logs_view), name='lessonlog_daily_batch'),
+        ]
+        return my_urls + urls
+
+    def daily_batch_logs_view(self, request):
+        from kadrlar.models import Teacher
+        from students.models import AcademicYear
+
+        # Bugungi sana standart sifatida
+        selected_date_str = request.GET.get('date', datetime.date.today().strftime('%Y-%m-%d'))
+        
+        try:
+            selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = datetime.date.today()
+            selected_date_str = selected_date.strftime('%Y-%m-%d')
+
+        # Tanlangan sanaga mos hafta kuni (1: Dushanba ... 6: Shanba)
+        # Python: 0=Dushanba, Django (yoki odatiy 1=Dushanba)
+        isoweekday = selected_date.isoweekday() 
+        
+        # POST kelganida (saqlash olinganida)
+        if request.method == 'POST':
+            # Barcha inputlarni o'qib olib saqlaymiz
+            timetable_ids = request.POST.getlist('timetable_id')
+            
+            for t_id in timetable_ids:
+                status = request.POST.get(f"status_{t_id}")
+                actual_teacher_id = request.POST.get(f"actual_teacher_{t_id}")
+                topic = request.POST.get(f"topic_{t_id}")
+                
+                if status:
+                    # Bazadan qidiramiz
+                    log = LessonLog.objects.filter(timetable_id=t_id, date=selected_date).first()
+                    
+                    if not log:
+                        # Topilmasa yangi yaratamiz
+                        tt = TimeTable.objects.get(id=t_id)
+                        log = LessonLog(
+                            timetable=tt,
+                            date=selected_date,
+                            group=tt.group or (tt.stream.groups.first() if tt.stream else None),
+                            subject=tt.subject,
+                            room=tt.room,
+                            planned_teacher=tt.teacher,
+                            hours=2.00 # Standard 1 para = 2 soat
+                        )
+                        if not log.group:
+                            continue # Guruh topilmasa tashlab o'tamiz
+
+                    # O'qituvchi o'zgarishi
+                    if actual_teacher_id:
+                        log.actual_teacher_id = actual_teacher_id
+                    else:
+                        log.actual_teacher = log.planned_teacher
+
+                    # Agar 'held' qilingan bo'lsa va o'qituvchi boshqa bo'lsa
+                    if status == 'held' and log.actual_teacher_id != log.planned_teacher_id:
+                        status = 'replaced'
+
+                    log.status = status
+                    log.topic = topic
+                    log.save()
+                    
+            messages.success(request, f"{selected_date_str} kungi dars jurnallari saqlandi!")
+            return redirect(reverse('admin:education_lessonlog_changelist'))
+
+
+        # O'quv yili filtri
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        academic_year_id = request.GET.get('academic_year')
+        if not academic_year_id and active_year:
+            academic_year_id = active_year.id
+
+        # Ushbu kun uchun dars jadvalini qidiramiz
+        timetables = TimeTable.objects.filter(weekday__order=isoweekday).select_related(
+            'subject', 'group', 'teacher', 'room', 'stream', 'timeslot'
+        )
+        if academic_year_id:
+            timetables = timetables.filter(academic_year_id=academic_year_id)
+        
+        # Alfavit va dars vaqti bo'yicha tartiblaymiz
+        timetables = timetables.order_by('timeslot__start_time', 'group__name', 'stream__name')
+
+        # Tizimdagi bor LessonLog larni o'qib kelamiz
+        existing_logs = {
+            log.timetable_id: log 
+            for log in LessonLog.objects.filter(date=selected_date)
+        }
+
+        # Context Data tayyorlaymiz
+        lessons_data = []
+        for tt in timetables:
+            group_name = tt.stream.name if tt.stream else (tt.group.name if tt.group else "Noma'lum")
+            
+            # Agar oldin saqlangan bo'lsa uni olamiz
+            log = existing_logs.get(tt.id)
+            
+            current_status = log.status if log else 'scheduled'
+            current_teacher_id = log.actual_teacher_id if log else tt.teacher_id
+            current_topic = log.topic if log else ""
+            
+            lessons_data.append({
+                'timetable_id': tt.id,
+                'timeslot': tt.timeslot,
+                'group_name': group_name,
+                'subject': tt.subject.name,
+                'room_name': tt.room.name if tt.room else "-",
+                'planned_teacher': tt.teacher,
+                'current_teacher_id': current_teacher_id,
+                'current_status': current_status,
+                'current_topic': current_topic
+            })
+
+        teachers = Teacher.objects.filter(employee__status='active').select_related('employee').order_by('employee__last_name')
+        
+        context = dict(
+            self.admin_site.each_context(request),
+            title="Kunlik Dars Jurnali (Guruhlash)",
+            selected_date=selected_date_str,
+            academic_year_id=int(academic_year_id) if academic_year_id else None,
+            academic_years=AcademicYear.objects.all().order_by('-name'),
+            lessons_data=lessons_data,
+            teachers=teachers,
+            status_choices=LessonLog.STATUS_CHOICES,
+        )
+
+        return render(request, "admin/education/lessonlog/daily_batch.html", context)
+
 class WorkloadAdminForm(forms.ModelForm):
     class Meta:
         model = Workload

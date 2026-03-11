@@ -471,7 +471,11 @@
                     <div class="info-row">
                         <span class="label">Shtat turi:</span>
                         <span class="value">
-                            {% if teacher.work_type_hourly %}Soatbay{% else %}Asosiy{% endif %}
+                            {% if teacher.work_type_permanent %}Asosiy (Shtat)<br>{% endif %}
+                            {% if teacher.work_type_hourly %}Soatbay<br>{% endif %}
+                            {% if teacher.work_type_internal_part_time %}Ichki o'rindosh<br>{% endif %}
+                            {% if teacher.work_type_external_part_time %}Tashqi o'rindosh<br>{% endif %}
+                            {% if not teacher.work_type_permanent and not teacher.work_type_hourly and not teacher.work_type_internal_part_time and not teacher.work_type_external_part_time %}-{% endif %}
                         </span>
                     </div>
                     <div class="info-row">

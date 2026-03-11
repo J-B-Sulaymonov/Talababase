@@ -2,12 +2,16 @@
 {% load i18n %}
 
 {% block object-tools-items %}
-        <a href="generate/" class="addlink btn btn-success float-right">
-            ⚙️ Avtomatik Generatsiya
-        </a>
-<a href="generate-logs/" class="addlink btn btn-success float-right" >
-            Semestr Jurnalini To'ldirish
-        </a>
+<a href="view-schedule/" class="addlink btn btn-success float-right">
+    🗓 Jadval ko'rish
+</a>
+<a href="generate/" class="addlink btn btn-success float-right">
+    ⚙️ Avtomatik Generatsiya
+</a>
+<a href="generate-logs/" class="addlink btn btn-success float-right">
+    Semestr Jurnalini To'ldirish
+</a>
 
-    {{ block.super }}
+
+{{ block.super }}
 {% endblock %}

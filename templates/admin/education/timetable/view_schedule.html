@@ -1,0 +1,445 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .schedule-container {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        padding: 15px 0 50px 0;
+        max-width: 100%;
+        color: #333;
+    }
+
+    /* SARLAVHA */
+    .schedule-title {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        font-size: 22px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* FILTR PANELI */
+    .filter-bar {
+        background: #fff;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border-left: 5px solid #17a2b8;
+        margin-bottom: 25px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: flex-end;
+    }
+
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+        min-width: 160px;
+    }
+
+    .filter-item label {
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: #555;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+
+    .filter-item select {
+        padding: 8px 10px;
+        border-radius: 5px;
+        border: 1px solid #ced4da;
+        font-size: 13px;
+        background-color: #f8f9fa;
+        transition: border-color 0.2s;
+    }
+
+    .filter-item select:focus {
+        border-color: #80bdff;
+        outline: none;
+        background: #fff;
+    }
+
+    .btn-view {
+        padding: 8px 25px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        background: #17a2b8;
+        color: white;
+        transition: all 0.2s;
+        height: 37px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-view:hover {
+        background: #138496;
+    }
+
+    .btn-back-link {
+        padding: 8px 18px;
+        border: 2px solid #6c757d;
+        border-radius: 5px;
+        font-weight: 600;
+        font-size: 13px;
+        background: transparent;
+        color: #6c757d;
+        text-decoration: none;
+        height: 37px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .btn-back-link:hover {
+        background: #6c757d;
+        color: #fff;
+    }
+
+    .btn-excel {
+        padding: 8px 18px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        background: #28a745;
+        color: white;
+        text-decoration: none;
+        height: 37px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        margin-left: auto;
+    }
+
+    .btn-excel:hover {
+        background: #218838;
+        color: #fff;
+    }
+
+    /* JADVAL */
+    .timetable-wrapper {
+        overflow-x: auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .timetable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    /* SARLAVHA SATRI */
+    .timetable thead th {
+        background: #1a5276;
+        color: #fff;
+        padding: 10px 6px;
+        text-align: center;
+        border: 1px solid #154360;
+        font-weight: 600;
+        font-size: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .timetable thead th.col-kun {
+        width: 80px;
+    }
+
+    .timetable thead th.col-num {
+        width: 30px;
+    }
+
+    .timetable thead th.col-time {
+        width: 110px;
+    }
+
+    .th-group-name {
+        font-weight: 700;
+        font-size: 12px;
+        display: block;
+    }
+
+    .th-student-count {
+        font-weight: 400;
+        font-size: 10px;
+        opacity: 0.8;
+        display: block;
+    }
+
+    /* KUN SARLAVHASI */
+    .day-header-cell {
+        background: #2c3e50 !important;
+        color: #fff;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        text-align: center;
+        padding: 8px;
+        border: 1px solid #1a252f;
+        vertical-align: middle;
+    }
+
+    /* ODDIY CELL */
+    .timetable tbody td {
+        border: 1px solid #dee2e6;
+        padding: 4px;
+        vertical-align: top;
+        background: #fff;
+        min-height: 60px;
+    }
+
+    .timetable tbody td.cell-num {
+        text-align: center;
+        font-weight: 700;
+        color: #495057;
+        background: #f1f3f5;
+        vertical-align: middle;
+        font-size: 13px;
+    }
+
+    .timetable tbody td.cell-time {
+        text-align: center;
+        font-weight: 600;
+        color: #495057;
+        background: #f8f9fa;
+        vertical-align: middle;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    /* DARS KARTOCHKASI */
+    .lesson-block {
+        padding: 3px 5px;
+        margin-bottom: 2px;
+        border-left: 3px solid #007bff;
+        background: #fdfdfd;
+        font-size: 11px;
+        line-height: 1.3;
+    }
+
+    .lesson-block:last-child {
+        margin-bottom: 0;
+    }
+
+    .lesson-block.type-lecture {
+        border-left-color: #28a745;
+        background: #f0f9f1;
+    }
+
+    .lesson-block.type-practice {
+        border-left-color: #007bff;
+        background: #f0f4fd;
+    }
+
+    .lesson-block.type-lab {
+        border-left-color: #e83e8c;
+        background: #fdf0f5;
+    }
+
+    .lesson-block.type-seminar {
+        border-left-color: #fd7e14;
+        background: #fdf5f0;
+    }
+
+    .lesson-subj {
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 1px;
+        font-size: 11px;
+    }
+
+    .lesson-detail {
+        color: #555;
+        font-size: 10px;
+    }
+
+    .lesson-detail i {
+        margin-right: 2px;
+    }
+
+    .lesson-meta {
+        color: #888;
+        font-size: 9px;
+        margin-top: 2px;
+    }
+
+    .room-tag {
+        font-weight: 700;
+        color: #198754;
+    }
+
+    .empty-cell {
+        color: #d5d5d5;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+        text-align: center;
+        color: #adb5bd;
+        padding: 60px 40px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .empty-state i {
+        font-size: 50px;
+        margin-bottom: 15px;
+        display: block;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 8px;
+    }
+
+    /* CHOP ETISH */
+    @media print {
+        .filter-bar,
+        .btn-back-link,
+        .btn-excel {
+            display: none !important;
+        }
+
+        .timetable thead th {
+            position: static;
+        }
+
+        .schedule-container {
+            padding: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{# prettier-ignore #}
+{% block content %}
+<div id="content-main" class="schedule-container">
+
+    <h1 class="schedule-title"><i class="fas fa-calendar-alt"></i> {{ title_text }}</h1>
+
+    {# FILTR BAR #}
+    {# prettier-ignore #}
+    <form method="GET" class="filter-bar">
+        <div class="filter-item">
+            <label><i class="fas fa-calendar"></i> O'quv yili</label>
+            <select name="academic_year">
+                {% for year in academic_years %}<option value="{{ year.id }}" {% if selected_year == year.id %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label><i class="fas fa-leaf"></i> Mavsum</label>
+            <select name="semester">
+                <option value="autumn" {% if selected_semester == 'autumn' %}selected{% endif %}>Kuzgi (Toq)</option>
+                <option value="spring" {% if selected_semester == 'spring' %}selected{% endif %}>Bahorgi (Juft)</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label><i class="fas fa-graduation-cap"></i> Ta'lim shakli</label>
+            <select name="education_form">
+                <option value="kunduzgi" {% if selected_edu_form == 'kunduzgi' %}selected{% endif %}>Kunduzgi</option>
+                <option value="sirtqi" {% if selected_edu_form == 'sirtqi' %}selected{% endif %}>Sirtqi</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label><i class="fas fa-layer-group"></i> Kurs</label>
+            <select name="course">
+                <option value="">Barchasi</option>
+                {% for val, label in course_choices %}<option value="{{ val }}" {% if selected_course == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn-view">
+            <i class="fas fa-search"></i> Ko'rish
+        </button>
+
+        <a href="{% url 'admin:education_timetable_changelist' %}" class="btn-back-link">
+            <i class="fas fa-arrow-left"></i> Orqaga
+        </a>
+    </form>
+
+    {# JADVAL #}
+    {% if not groups_in_schedule %}
+    <div class="empty-state">
+        <i class="fas fa-calendar-times"></i>
+        <h3>Ma'lumot topilmadi</h3>
+        <p>Tanlangan parametrlarga mos dars jadvali topilmadi.</p>
+    </div>
+    {% else %}
+
+    <div class="timetable-wrapper">
+        <table class="timetable">
+            <thead>
+                <tr>
+                    <th class="col-kun">Kun</th>
+                    <th class="col-num">№</th>
+                    <th class="col-time">Vaqti</th>
+                    {% for grp in groups_in_schedule %}
+                    <th>
+                        <span class="th-group-name">{{ grp.name }}</span>
+                        <span class="th-student-count">({{ grp.student_count }} nafar)</span>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for day_data in schedule_rows %}
+                {% for row in day_data.rows %}
+                <tr>
+                    {% if forloop.first %}
+                    <td class="day-header-cell" rowspan="{{ day_data.rows|length }}">{{ day_data.weekday.name }}</td>
+                    {% endif %}
+
+                    <td class="cell-num">#{{ row.timeslot.index }}</td>
+
+                    <td class="cell-time">#{{ row.timeslot.index }} ({{ row.timeslot.start_time|time:"H:i" }}-{{ row.timeslot.end_time|time:"H:i" }})</td>
+
+                    {% for cell in row.cells %}
+                    <td>
+                        {% if cell.lessons %}
+                        {% for lesson in cell.lessons %}
+                        <div class="lesson-block {% if lesson.lesson_type_key == 'lecture' %}type-lecture{% elif lesson.lesson_type_key == 'practice' %}type-practice{% elif lesson.lesson_type_key == 'lab' %}type-lab{% elif lesson.lesson_type_key == 'seminar' %}type-seminar{% endif %}">
+                            <div class="lesson-subj">{{ lesson.subject_name }}</div>
+                            <div class="lesson-detail">{{ lesson.lesson_type }} • {{ lesson.teacher_name }}</div>
+                            <div class="lesson-meta">{% if lesson.stream_name %}{{ lesson.stream_name }}{% endif %}{% if lesson.room_name %}<span class="room-tag"> • {{ lesson.room_name }}</span>{% endif %}</div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

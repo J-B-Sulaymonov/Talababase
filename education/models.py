@@ -221,6 +221,8 @@ class Stream(models.Model):
     EMPLOYMENT_TYPE_CHOICES = [
         ('permanent', "Asosiy (Shtat)"),
         ('hourly', "Soatbay"),
+        ('internal_part_time', "Ichki o'rindosh"),
+        ('external_part_time', "Tashqi o'rindosh"),
     ]
 
     # Asosiy bog'lovchi - WORKLOAD
@@ -254,7 +256,7 @@ class Stream(models.Model):
         ordering = ['lesson_type', 'name']
 
     def __str__(self):
-        # Workload orqali fanni nomini olamiz
+        # Workload orqali f fanni nomini olamiz
         return f"{self.workload.subject.name} - {self.name} ({self.get_lesson_type_display()})"
 
     def clean(self):
@@ -263,15 +265,27 @@ class Stream(models.Model):
         # Agar o'qituvchi tanlangan bo'lsa, uning ishlash turini tekshiramiz
         if self.teacher:
             # 1-holat: Asosiy (Shtat) tanlangan, lekin o'qituvchi Asosiy emas
-            if self.employment_type == 'permanent' and not self.teacher.work_type_permanent:
+            if self.employment_type == 'permanent' and not getattr(self.teacher, 'work_type_permanent', False):
                 raise ValidationError({
-                    'employment_type': f"O'qituvchi {self.teacher} 'Asosiy (Shtat)'da ishlamaydi. Iltimos, 'Soatbay'ni tanlang yoki o'qituvchi profilini o'zgartiring."
+                    'employment_type': f"O'qituvchi {self.teacher} 'Asosiy (Shtat)'da ishlamaydi. Iltimos, boshqa ishlash turini tanlang yoki o'qituvchi profilini o'zgartiring."
                 })
 
             # 2-holat: Soatbay tanlangan, lekin o'qituvchi Soatbay emas
-            if self.employment_type == 'hourly' and not self.teacher.work_type_hourly:
+            if self.employment_type == 'hourly' and not getattr(self.teacher, 'work_type_hourly', False):
                 raise ValidationError({
-                    'employment_type': f"O'qituvchi {self.teacher} 'Soatbay' ishlamaydi. Iltimos, 'Asosiy (Shtat)'ni tanlang yoki o'qituvchi profilini o'zgartiring."
+                    'employment_type': f"O'qituvchi {self.teacher} 'Soatbay' ishlamaydi. Iltimos, boshqa ishlash turini tanlang yoki o'qituvchi profilini o'zgartiring."
+                })
+
+            # 3-holat: Ichki o'rindosh
+            if self.employment_type == 'internal_part_time' and not getattr(self.teacher, 'work_type_internal_part_time', False):
+                raise ValidationError({
+                    'employment_type': f"O'qituvchi {self.teacher} 'Ichki o'rindosh'da ishlamaydi. Iltimos, boshqa ishlash turini tanlang yoki o'qituvchi profilini o'zgartiring."
+                })
+
+            # 4-holat: Tashqi o'rindosh
+            if self.employment_type == 'external_part_time' and not getattr(self.teacher, 'work_type_external_part_time', False):
+                raise ValidationError({
+                    'employment_type': f"O'qituvchi {self.teacher} 'Tashqi o'rindosh'da ishlamaydi. Iltimos, boshqa ishlash turini tanlang yoki o'qituvchi profilini o'zgartiring."
                 })
 
 

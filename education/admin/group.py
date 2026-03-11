@@ -81,8 +81,164 @@ class TimeTableAdmin(admin.ModelAdmin):
             path('generate/', self.admin_site.admin_view(self.generate_view), name='education_timetable_generate'),
             # YANGI LOG GENERATSIYA
             path('generate-logs/', self.admin_site.admin_view(self.generate_logs_view), name='education_timetable_generate_logs'),
+            # YANGI: JADVAL KO'RISH
+            path('view-schedule/', self.admin_site.admin_view(self.view_schedule), name='education_timetable_view_schedule'),
         ]
         return custom_urls + urls
+
+    def view_schedule(self, request):
+        """Dars jadvalini vizual ko'rinishda ko'rsatish (Kurs jadvali formati)"""
+        from kadrlar.models import Weekday, TimeSlot
+        from django.db.models import Count
+
+        # Filtrlar
+        academic_years = AcademicYear.objects.all().order_by('-name')
+
+        # Default: aktiv o'quv yili
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        selected_year_id = request.GET.get('academic_year')
+        if selected_year_id:
+            selected_year_id = int(selected_year_id)
+        elif active_year:
+            selected_year_id = active_year.id
+
+        selected_semester = request.GET.get('semester', 'autumn')
+        selected_edu_form = request.GET.get('education_form', 'kunduzgi')
+        selected_course = request.GET.get('course', '')
+
+        semester_display = 'Kuzgi semestr' if selected_semester == 'autumn' else 'Bahorgi semestr'
+        year_display = ''
+        if selected_year_id:
+            year_obj = AcademicYear.objects.filter(id=selected_year_id).first()
+            year_display = year_obj.name if year_obj else ''
+
+        # Kurs choices
+        course_choices = [(i, f"{i}-kurs") for i in range(1, 6)]
+
+        # TimeTable yozuvlarini filtrlash
+        timetable_qs = TimeTable.objects.select_related(
+            'weekday', 'timeslot', 'group', 'group__specialty',
+            'subject', 'teacher', 'teacher__employee', 'room', 'stream'
+        )
+
+        if selected_year_id:
+            timetable_qs = timetable_qs.filter(academic_year_id=selected_year_id)
+        if selected_semester:
+            timetable_qs = timetable_qs.filter(semester=selected_semester)
+        if selected_edu_form:
+            timetable_qs = timetable_qs.filter(education_form=selected_edu_form)
+
+        # Kurs bo'yicha filtrlash (EducationPlan orqali emas, Group bo'yicha)
+        # TimeTable guruhning kursini bilish uchun stream -> workload -> plan_subjects -> education_plan.course
+        # Yoki oddiyroq: guruhlar ro'yxatini olib, ularning plan bo'yicha kursini aniqlash
+        if selected_course:
+            selected_course = int(selected_course)
+            # Shu kurs uchun education plan da bo'lgan guruhlarni topish
+            plan_groups = EducationPlan.objects.filter(
+                course=selected_course
+            )
+            if selected_year_id:
+                plan_groups = plan_groups.filter(academic_year_id=selected_year_id)
+            if selected_edu_form:
+                plan_groups = plan_groups.filter(education_form=selected_edu_form)
+
+            spec_ids = plan_groups.values_list('specialty_id', flat=True).distinct()
+            course_group_ids = Group.objects.filter(specialty_id__in=spec_ids).values_list('id', flat=True)
+            timetable_qs = timetable_qs.filter(group_id__in=course_group_ids)
+
+        # Weekday va TimeSlot
+        weekdays = list(Weekday.objects.all().order_by('order'))
+        timeslots = list(TimeSlot.objects.filter(is_active=True).order_by('index'))
+
+        # Guruhlarni aniqlash va talabalar sonini hisoblash
+        group_ids_in_tt = timetable_qs.values_list('group_id', flat=True).distinct()
+        groups_in_schedule = list(
+            Group.objects.filter(id__in=group_ids_in_tt)
+            .annotate(student_count=Count('student'))
+            .select_related('specialty')
+            .order_by('name')
+        )
+
+        # GRID: {weekday_id: {timeslot_id: {group_id: [lessons]}}}
+        grid = {}
+        for tt in timetable_qs:
+            if not tt.group:
+                continue
+            wd_id = tt.weekday_id
+            ts_id = tt.timeslot_id
+            gr_id = tt.group_id
+
+            if wd_id not in grid:
+                grid[wd_id] = {}
+            if ts_id not in grid[wd_id]:
+                grid[wd_id][ts_id] = {}
+            if gr_id not in grid[wd_id][ts_id]:
+                grid[wd_id][ts_id][gr_id] = []
+
+            # Stream nomi va dars turi
+            stream_name = tt.stream.name if tt.stream else ''
+            lesson_type = ''
+            lesson_type_key = ''
+            if tt.stream:
+                lesson_type = tt.stream.get_lesson_type_display()
+                lesson_type_key = tt.stream.lesson_type
+
+            grid[wd_id][ts_id][gr_id].append({
+                'subject_name': tt.subject.name if tt.subject else '-',
+                'teacher_name': str(tt.teacher.employee) if tt.teacher and tt.teacher.employee else '-',
+                'room_name': tt.room.name if tt.room else '',
+                'stream_name': stream_name,
+                'lesson_type': lesson_type,
+                'lesson_type_key': lesson_type_key,
+            })
+
+        # Template uchun qulayroq tuzilma: [{weekday, rows: [{timeslot, cells: [{group, lessons}]}]}]
+        schedule_rows = []
+        for wd in weekdays:
+            day_rows = []
+            for ts in timeslots:
+                cells = []
+                for grp in groups_in_schedule:
+                    lessons = grid.get(wd.id, {}).get(ts.id, {}).get(grp.id, [])
+                    cells.append({
+                        'group_id': grp.id,
+                        'lessons': lessons,
+                    })
+                day_rows.append({
+                    'timeslot': ts,
+                    'cells': cells,
+                })
+            schedule_rows.append({
+                'weekday': wd,
+                'rows': day_rows,
+            })
+
+        title_text = ''
+        if selected_course:
+            title_text = f"{selected_course}-kurs — Dars jadvali ({year_display} o'quv yili {semester_display})"
+        else:
+            title_text = f"Dars jadvali ({year_display} o'quv yili {semester_display})"
+
+        context = self.admin_site.each_context(request)
+        context.update({
+            'title': "Dars jadvali ko'rish",
+            'title_text': title_text,
+            'academic_years': academic_years,
+            'course_choices': course_choices,
+            'selected_year': selected_year_id,
+            'selected_semester': selected_semester,
+            'selected_edu_form': selected_edu_form,
+            'selected_course': selected_course,
+            'groups_in_schedule': groups_in_schedule,
+            'schedule_rows': schedule_rows,
+            'total_entries': timetable_qs.count(),
+            'total_groups': len(groups_in_schedule),
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request),
+            'site_header': self.admin_site.site_header,
+            'site_title': self.admin_site.site_title,
+        })
+        return render(request, "admin/education/timetable/view_schedule.html", context)
 
     # --- YANGI METOD: LOGLARNI GENERATSIYA QILISH ---
     def generate_logs_view(self, request):

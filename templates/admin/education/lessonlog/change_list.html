@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static %}
+
+{% block object-tools %}
+    {{ block.super }}
+    <ul class="object-tools">
+        <li>
+            <a href="{% url 'admin:lessonlog_daily_batch' %}" class="btn btn-success" style="background-color: #28a745; border-color: #28a745;">
+                <i class="fas fa-calendar-check"></i> Kunlik Jurnalni To'ldirish (Tezkor)
+            </a>
+        </li>
+    </ul>
+{% endblock %}

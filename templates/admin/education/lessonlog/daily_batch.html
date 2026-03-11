@@ -1,0 +1,252 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .log-container {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        padding: 15px 0 50px 0;
+        max-width: 100%;
+        color: #333;
+    }
+
+    /* SARLAVHA */
+    .log-title {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        font-size: 22px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* FILTR PANELI */
+    .filter-bar {
+        background: #fff;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border-left: 5px solid #28a745;
+        margin-bottom: 25px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: flex-end;
+    }
+
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+        min-width: 160px;
+    }
+
+    .filter-item label {
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: #555;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+
+    .filter-item input[type="date"],
+    .filter-item select {
+        padding: 8px 10px;
+        border-radius: 5px;
+        border: 1px solid #ced4da;
+        font-size: 13px;
+        background-color: #f8f9fa;
+        height: 37px;
+    }
+
+    .btn-action {
+        padding: 8px 25px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        background: #17a2b8;
+        color: white;
+        height: 37px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-action:hover { background: #138496; }
+
+    .btn-save-all {
+        background: #28a745;
+        font-size: 14px;
+        padding: 10px 30px;
+        height: auto;
+    }
+    .btn-save-all:hover { background: #218838; }
+
+    /* JADVAL */
+    .table-wrapper {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .log-table thead th {
+        background: #f8f9fa;
+        color: #495057;
+        padding: 12px 10px;
+        text-align: left;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .log-table tbody td {
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: middle;
+    }
+
+    .log-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .status-select {
+        min-width: 130px;
+    }
+    
+    .status-held { background-color: #d4edda; color: #155724; font-weight: bold; }
+    .status-canceled { background-color: #f8d7da; color: #721c24; font-weight: bold;}
+    .status-replaced { background-color: #fff3cd; color: #856404; font-weight: bold;}
+</style>
+<script>
+    function updateSelectColor(selectObj) {
+        selectObj.className = "form-control status-select";
+        var val = selectObj.value;
+        if(val === 'held') selectObj.classList.add('status-held');
+        else if(val === 'canceled') selectObj.classList.add('status-canceled');
+        else if(val === 'replaced') selectObj.classList.add('status-replaced');
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.status-select').forEach(function(el) {
+            updateSelectColor(el);
+        });
+    });
+</script>
+{% endblock %}
+
+{# prettier-ignore #}
+{% block content %}
+<div id="content-main" class="log-container">
+
+    <h1 class="log-title"><i class="fas fa-clipboard-check"></i> {{ title }}</h1>
+
+    <form method="GET" class="filter-bar">
+        <div class="filter-item">
+            <label><i class="fas fa-calendar"></i> Sana</label>
+            <input type="date" name="date" value="{{ selected_date }}">
+        </div>
+
+        <div class="filter-item">
+            <label><i class="fas fa-calendar-alt"></i> O'quv yili</label>
+            <select name="academic_year">
+                <option value="">-- Barcha yillar --</option>
+                {% for year in academic_years %}<option value="{{ year.id }}" {% if academic_year_id == year.id %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn-action">
+            <i class="fas fa-search"></i> Jadvalni yuklash
+        </button>
+
+        <a href="{% url 'admin:education_lessonlog_changelist' %}" class="btn-action" style="background: #6c757d; margin-left: auto;">
+            <i class="fas fa-arrow-left"></i> Orqaga
+        </a>
+    </form>
+
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="table-wrapper">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Vaqt</th>
+                        <th>Guruh / Patok</th>
+                        <th>Fan</th>
+                        <th>Xona</th>
+                        <th>Rejadagi O'qituvchi</th>
+                        <th>Amaldagi O'qituvchi</th>
+
+                        <th>Holati</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in lessons_data %}
+                    <tr>
+                        <td>
+                            <input type="hidden" name="timetable_id" value="{{ item.timetable_id }}">
+                            <strong>#{{ item.timeslot.index }}</strong><br>
+                            <span style="font-size: 11px; color: #666;">
+                                {{ item.timeslot.start_time|time:"H:i" }} - {{ item.timeslot.end_time|time:"H:i" }}
+                            </span>
+                        </td>
+                        <td><strong>{{ item.group_name }}</strong></td>
+                        <td>{{ item.subject }}</td>
+                        <td>{{ item.room_name }}</td>
+                        <td style="color: #666;">{{ item.planned_teacher|default:"Biriktirilmagan" }}</td>
+                        <td>
+                            <select name="actual_teacher_{{ item.timetable_id }}" class="form-control">
+                                <option value="">--- Vakant ---</option>
+                                {% for teacher in teachers %}<option value="{{ teacher.id }}" {% if item.current_teacher_id == teacher.id %}selected{% endif %}>{{ teacher.last_name }} {{ teacher.first_name|truncatechars:18 }}</option>{% endfor %}
+                            </select>
+                        </td>
+
+                        <td>
+                            <select name="status_{{ item.timetable_id }}" class="form-control status-select" onchange="updateSelectColor(this)">
+                                {% for val, label in status_choices %}<option value="{{ val }}" {% if item.current_status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #888;">
+                            <i class="fas fa-calendar-times" style="font-size: 40px; margin-bottom: 10px;"></i>
+                            <br>Ushbu sana bo'yicha darslar jadvalda topilmadi.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if lessons_data %}
+        <div style="text-align: right; margin-bottom: 40px;">
+            <button type="submit" class="btn-action btn-save-all">
+                <i class="fas fa-save"></i> Barchasini saqlash
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

@@ -636,8 +636,8 @@
             </div>
             <div class="suggestion-badge">
                 <i class="fas fa-lightbulb" style="color: #f39c12;"></i>
-                {% if "Soatbay" in err.reason %}
-                Tavsiya: Soatbay o'qituvchi vaqtini ko'paytiring
+                {% if "hourly" in err.reason or "external_part_time" in err.reason or "Soatbay" in err.reason %}
+                Tavsiya: Soatbay/O'rindosh o'qituvchi bo'sh vaqtlarini ko'paytiring
                 {% elif "xona" in err.reason %}
                 Tavsiya: Xonalar yetishmayapti
                 {% elif "Guruh" in err.reason %}

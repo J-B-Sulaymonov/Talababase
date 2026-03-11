@@ -204,8 +204,8 @@ class ScheduleGeneratorService:
     def sort_streams_by_priority(self, streams):
         def priority_key(stream):
             group_score = stream.group_count * 100
-            emp_type = getattr(stream.teacher, 'employment_type', 'main')
-            teacher_score = 1000 if emp_type == 'hourly' else 0
+            emp_type = stream.employment_type
+            teacher_score = 1000 if emp_type in ('hourly', 'external_part_time') else 0
             type_score = 50 if stream.lesson_type == 'lab' else 0
 
             level = self.get_stream_course(stream)
@@ -242,15 +242,14 @@ class ScheduleGeneratorService:
 
         return all_slots
 
-    def is_teacher_available(self, teacher, day_id, slot_id):
+    def is_teacher_available(self, teacher, day_id, slot_id, emp_type):
         if (day_id, slot_id, teacher.id) in self.matrix_teacher:
             return False, "O'qituvchi boshqa darsda band"
-        emp_type = getattr(teacher, 'employment_type', 'main')
-        if emp_type != 'hourly':
+        if emp_type not in ('hourly', 'external_part_time'):
             return True, "OK"
         if (teacher.id, day_id, slot_id) in self.teacher_availability_cache:
             return True, "OK"
-        return False, "O'qituvchi ish vaqti emas (Soatbay)"
+        return False, f"O'qituvchi ish vaqti emas ({emp_type})"
 
     # =========================================================
     # #2: KUN BO'YICHA MUVOZANAT
@@ -386,7 +385,7 @@ class ScheduleGeneratorService:
             slot_candidates.sort(key=lambda x: x[1])
 
             for slot, _ in slot_candidates:
-                is_avail, reason = self.is_teacher_available(teacher, day.id, slot.id)
+                is_avail, reason = self.is_teacher_available(teacher, day.id, slot.id, stream.employment_type)
                 if not is_avail:
                     if "ish vaqti" in reason:
                         fail_reasons["teacher_unavailable"] += 1

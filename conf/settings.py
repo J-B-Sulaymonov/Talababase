@@ -175,12 +175,12 @@ JAZZMIN_SETTINGS = {
         ],
     },
     "order_with_respect_to": [
-        "students",
         "kadrlar",
+        "finance",
+        "students",
         "kadrlar.Department",
         "kadrlar.Employee",
         "education",
-        "finance",
         "auth",
     ],
     "icons": {
