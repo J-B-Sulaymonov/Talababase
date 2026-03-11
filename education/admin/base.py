@@ -122,7 +122,6 @@ class StreamInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     fields = ('name', 'lesson_type', 'teacher', 'employment_type', 'groups', 'sub_groups')
-    autocomplete_fields = ['teacher']
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         field = super().formfield_for_dbfield(db_field, request, **kwargs)
@@ -136,6 +135,19 @@ class StreamInline(admin.TabularInline):
         return field
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'teacher':
+            # Workload ning subject iga qarab o'qituvchilarni filtrlash
+            object_id = request.resolver_match.kwargs.get('object_id')
+            if object_id:
+                try:
+                    workload = Workload.objects.get(pk=object_id)
+                    from kadrlar.models import Teacher
+                    kwargs['queryset'] = Teacher.objects.filter(
+                        employee__status='active',
+                        subjects=workload.subject
+                    ).select_related('employee').order_by('employee__last_name')
+                except Workload.DoesNotExist:
+                    pass
         field = super().formfield_for_foreignkey(db_field, request, **kwargs)
         if field and hasattr(field, 'widget') and db_field.name == 'teacher':
             field.widget.attrs.update({'style': 'width: 150px;'})

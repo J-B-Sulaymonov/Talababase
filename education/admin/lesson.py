@@ -21,8 +21,8 @@ from education.services.main import generate_semester_logs
 
 @admin.register(LessonLog)
 class LessonLogAdmin(admin.ModelAdmin):
-    list_display = ('date', 'group', 'subject', 'planned_teacher', 'actual_teacher', 'status', 'is_confirmed')
-    list_filter = ('date', 'status', 'is_confirmed', 'group')
+    list_display = ('date', 'group', 'subject', 'planned_teacher', 'actual_teacher', 'employment_type', 'lesson_type', 'status', 'is_confirmed')
+    list_filter = ('date', 'status', 'is_confirmed', 'employment_type', 'lesson_type', 'group')
     # O'quv bo'limi ro'yxatni o'zidan turib o'zgartira olishi uchun
     list_editable = ('actual_teacher', 'status', 'is_confirmed')
     search_fields = ('group__name', 'subject__name', 'actual_teacher__first_name')
@@ -74,7 +74,7 @@ class LessonLogAdmin(admin.ModelAdmin):
                     
                     if not log:
                         # Topilmasa yangi yaratamiz
-                        tt = TimeTable.objects.get(id=t_id)
+                        tt = TimeTable.objects.select_related('stream').get(id=t_id)
                         log = LessonLog(
                             timetable=tt,
                             date=selected_date,
@@ -82,7 +82,9 @@ class LessonLogAdmin(admin.ModelAdmin):
                             subject=tt.subject,
                             room=tt.room,
                             planned_teacher=tt.teacher,
-                            hours=2.00 # Standard 1 para = 2 soat
+                            hours=2.00, # Standard 1 para = 2 soat
+                            employment_type=tt.stream.employment_type if tt.stream else None,
+                            lesson_type=tt.stream.lesson_type if tt.stream else None,
                         )
                         if not log.group:
                             continue # Guruh topilmasa tashlab o'tamiz
@@ -127,6 +129,9 @@ class LessonLogAdmin(admin.ModelAdmin):
             for log in LessonLog.objects.filter(date=selected_date)
         }
 
+        # Fan bo'yicha o'qituvchilar keshi (har bir fan uchun faqat 1 marta so'rov)
+        subject_teachers_cache = {}
+
         # Context Data tayyorlaymiz
         lessons_data = []
         for tt in timetables:
@@ -138,6 +143,16 @@ class LessonLogAdmin(admin.ModelAdmin):
             current_status = log.status if log else 'scheduled'
             current_teacher_id = log.actual_teacher_id if log else tt.teacher_id
             current_topic = log.topic if log else ""
+
+            # Fan bo'yicha o'qituvchilarni olish (kesh bilan)
+            subject_id = tt.subject_id
+            if subject_id not in subject_teachers_cache:
+                subject_teachers_cache[subject_id] = list(
+                    Teacher.objects.filter(
+                        employee__status='active',
+                        subjects__id=subject_id
+                    ).select_related('employee').order_by('employee__last_name')
+                )
             
             lessons_data.append({
                 'timetable_id': tt.id,
@@ -148,11 +163,10 @@ class LessonLogAdmin(admin.ModelAdmin):
                 'planned_teacher': tt.teacher,
                 'current_teacher_id': current_teacher_id,
                 'current_status': current_status,
-                'current_topic': current_topic
+                'current_topic': current_topic,
+                'available_teachers': subject_teachers_cache[subject_id],
             })
 
-        teachers = Teacher.objects.filter(employee__status='active').select_related('employee').order_by('employee__last_name')
-        
         context = dict(
             self.admin_site.each_context(request),
             title="Kunlik Dars Jurnali (Guruhlash)",
@@ -160,7 +174,6 @@ class LessonLogAdmin(admin.ModelAdmin):
             academic_year_id=int(academic_year_id) if academic_year_id else None,
             academic_years=AcademicYear.objects.all().order_by('-name'),
             lessons_data=lessons_data,
-            teachers=teachers,
             status_choices=LessonLog.STATUS_CHOICES,
         )
 

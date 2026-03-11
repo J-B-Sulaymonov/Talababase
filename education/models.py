@@ -370,6 +370,20 @@ class LessonLog(models.Model):
         ('replaced', 'Zamena (Almashtirildi)'),  # Boshqa o'qituvchi o'tdi
     ]
 
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('permanent', "Asosiy (Shtat)"),
+        ('hourly', "Soatbay"),
+        ('internal_part_time', "Ichki o'rindosh"),
+        ('external_part_time', "Tashqi o'rindosh"),
+    ]
+
+    LESSON_TYPE_CHOICES = [
+        ('lecture', "Ma'ruza"),
+        ('practice', "Amaliyot"),
+        ('seminar', "Seminar"),
+        ('lab', "Laboratoriya"),
+    ]
+
     # Qaysi jadval asosida yaratildi? (Null bo'lishi mumkin, agar qo'shimcha dars bo'lsa)
     timetable = models.ForeignKey(TimeTable, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs',
                                   verbose_name="Jadval asosi")
@@ -407,6 +421,25 @@ class LessonLog(models.Model):
         verbose_name="Soat miqdori (Moliya uchun)"
     )
 
+    # Moliyaviy hisob-kitob uchun ish turi va dars turi (Stream dan olinadi)
+    employment_type = models.CharField(
+        max_length=20,
+        choices=EMPLOYMENT_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Ish turi (Moliya uchun)",
+        help_text="O'qituvchining ushbu darsni o'tgan paytdagi ish turi. Stream dan avtomatik olinadi."
+    )
+
+    lesson_type = models.CharField(
+        max_length=20,
+        choices=LESSON_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Dars turi",
+        help_text="Ma'ruza, Amaliyot, Seminar yoki Laboratoriya. Stream dan avtomatik olinadi."
+    )
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -436,8 +469,13 @@ class LessonLog(models.Model):
         if not self.actual_teacher and self.planned_teacher:
             self.actual_teacher = self.planned_teacher
 
-        # Agar status 'held' bo'lsa va o'qituvchilar har xil bo'lsa -> 'replaced' ga o'tkazish mantiqan to'g'ri bo'lishi mumkin,
-        # lekin admin panelda qo'lda boshqarilishi uchun buni qattiq qoida qilmaymiz.
+        # employment_type va lesson_type ni Stream dan avtomatik olish
+        # Faqat yangi yozuv yaratilayotganda yoki maydon hali bo'sh bo'lganda to'ldiramiz
+        if self.timetable and self.timetable.stream:
+            if not self.employment_type:
+                self.employment_type = self.timetable.stream.employment_type
+            if not self.lesson_type:
+                self.lesson_type = self.timetable.stream.lesson_type
 
         super().save(*args, **kwargs)
 

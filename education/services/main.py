@@ -79,7 +79,9 @@ def generate_semester_logs(start_date, end_date, academic_year_id, semester, edu
                             'actual_teacher': tt.teacher,
                             'hours': lesson_hours,
                             'status': 'scheduled',
-                            'is_confirmed': False
+                            'is_confirmed': False,
+                            'employment_type': tt.stream.employment_type if tt.stream else None,
+                            'lesson_type': tt.stream.lesson_type if tt.stream else None,
                         }
                     )
                     if created:

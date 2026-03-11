@@ -218,7 +218,7 @@
                         <td>
                             <select name="actual_teacher_{{ item.timetable_id }}" class="form-control">
                                 <option value="">--- Vakant ---</option>
-                                {% for teacher in teachers %}<option value="{{ teacher.id }}" {% if item.current_teacher_id == teacher.id %}selected{% endif %}>{{ teacher.last_name }} {{ teacher.first_name|truncatechars:18 }}</option>{% endfor %}
+                                {% for teacher in item.available_teachers %}<option value="{{ teacher.id }}" {% if item.current_teacher_id == teacher.id %}selected{% endif %}>{{ teacher.employee.last_name }} {{ teacher.employee.first_name|truncatechars:18 }}</option>{% endfor %}
                             </select>
                         </td>
 
