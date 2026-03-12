@@ -162,32 +162,59 @@ class Workload(models.Model):
     def calculate_total_hours(self):
         """
         Jami soatni hisoblash.
-        Mantiq: Har bir tanlangan guruhni olamiz, uning yo'nalishiga (Specialty)
-        mos keluvchi PlanSubject ni topamiz va soatini qo'shamiz.
+        Mantiq: Agar patoklar (streams) kiritilgan bo'lsa, har bir patok 
+        o'z dars turi soatini 1 marta hisoblaydi.
+        Agar streamlar kiritilmagan bo'lsa, barcha guruhlar bo'yicha taxminiy hisoblanadi
+        (bunda ma'ruza faqat bitta patok deb faraz qilinadi).
         """
         if not self.pk:
             return 0
 
-        total_hours = 0
-
-        # Barcha tanlangan rejalar va guruhlarni olamiz
-        selected_plans = self.plan_subjects.all()  # QuerySet
-        selected_groups = self.groups.all()  # QuerySet
+        selected_plans = self.plan_subjects.all()
+        selected_groups = self.groups.all()
 
         if not selected_plans or not selected_groups:
             return 0
 
-        # Har bir guruh uchun hisoblaymiz
+        total_hours = 0
+        streams = self.streams.all()
+
+        if streams.exists():
+            for stream in streams:
+                # Patokdagi 1-guruhni olamiz
+                group = stream.groups.first()
+                if not group and stream.sub_groups.exists():
+                    group = stream.sub_groups.first().group
+                    
+                if not group:
+                    continue
+
+                match_plan = selected_plans.filter(education_plan__specialty=group.specialty).first()
+                if match_plan:
+                    if stream.lesson_type == 'lecture':
+                        total_hours += match_plan.lecture_hours
+                    elif stream.lesson_type == 'practice':
+                        total_hours += match_plan.practice_hours
+                    elif stream.lesson_type == 'lab':
+                        total_hours += match_plan.lab_hours
+                    elif stream.lesson_type == 'seminar':
+                        total_hours += match_plan.seminar_hours
+            
+            return total_hours
+            
+        # Agar streamlar hali kiritilmagan bo'lsa (taxminiy hisob)
+        lecture_added = False
+        
         for group in selected_groups:
-            # Shu guruhning yo'nalishiga mos keladigan rejani tanlanganlar ichidan qidiramiz
-            # (PlanSubject -> EducationPlan -> Specialty)
             match_plan = selected_plans.filter(education_plan__specialty=group.specialty).first()
 
             if match_plan:
-                # Agar reja topilsa, uning soatlarini qo'shamiz
-                h = match_plan.lecture_hours + match_plan.practice_hours + \
-                    match_plan.lab_hours + match_plan.seminar_hours
-                total_hours += h
+                if not lecture_added:
+                    total_hours += match_plan.lecture_hours
+                    lecture_added = True
+                
+                total_hours += match_plan.practice_hours + \
+                               match_plan.lab_hours + match_plan.seminar_hours
 
         return total_hours
 
