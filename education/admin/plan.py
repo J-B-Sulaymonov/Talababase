@@ -155,60 +155,49 @@ class EducationPlanAdmin(admin.ModelAdmin):
         info_text = f"Yo'nalish: {plan.specialty.name} | O'quv yili: {plan.academic_year} | Kurs: {plan.course}"
         worksheet.merge_range(1, 0, 1, 27, info_text, fmt_info)
 
+        if plan.education_form in ['sirtqi', 'masofaviy']:
+            max_sem = 10
+        else:
+            max_sem = 8
+
         # ==========================================
         # 2. JADVALNI BOSHLASH (OFFSET)
         # ==========================================
-        # Jadval 3-qatordan (index 3) boshlanadi.
-        # Shuning uchun hamma joyda "row + START_ROW" qilamiz.
         START_ROW = 3
 
-        # --- O'LCHAMLAR ---
-        # Tepadagi sarlavha qatorlari balandligi
         worksheet.set_row(0, 25)
         worksheet.set_row(1, 25)
-        worksheet.set_row(2, 10)  # Ajratuvchi bo'sh joy
+        worksheet.set_row(2, 10)
+        worksheet.set_row(START_ROW + 0, 30)
+        worksheet.set_row(START_ROW + 1, 30)
+        worksheet.set_row(START_ROW + 2, 10)
+        worksheet.set_row(START_ROW + 3, 10)
+        worksheet.set_row(START_ROW + 4, 20)
+        worksheet.set_row(START_ROW + 5, 25)
+        worksheet.set_row(START_ROW + 6, 18)
 
-        # SIZ BERGAN O'LCHAMLAR (START_ROW ga qo'shib yozamiz)
-        worksheet.set_row(START_ROW + 0, 30)  # Sarlavha
-        worksheet.set_row(START_ROW + 1, 30)  # Auditoriya
-
-        # 3 va 4 (Excelda 3 va 4-qatorlar) -> Bizda index 2 va 3
-        worksheet.set_row(START_ROW + 2, 10)  # Kichkina
-        worksheet.set_row(START_ROW + 3, 10)  # Kichkina
-
-        worksheet.set_row(START_ROW + 4, 20)  # Raqamlar
-        worksheet.set_row(START_ROW + 5, 25)  # Izoh
-        worksheet.set_row(START_ROW + 6, 18)  # Indekslar
-
-        # Ustun kengliklari
         worksheet.set_column('A:A', 4)  # T/r
         worksheet.set_column('B:B', 40)  # Fan nomi
-        worksheet.set_column('C:C', 6)  # 3-ustun (Umumiy)
-        worksheet.set_column('D:D', 4)  # 4-ustun (0)
-        worksheet.set_column('E:E', 5)  # Jami
-        worksheet.set_column('F:I', 4)  # Ma'ruza...
-        worksheet.set_column('J:J', 4)  # Kurs ishi
-        worksheet.set_column('K:K', 4)  # Mustaqil ta'lim
-        worksheet.set_column('L:AA', 4)  # Semestrlar
-        worksheet.set_column('AB:AB', 6)  # Jami kredit
+        worksheet.set_column('C:C', 6)
+        worksheet.set_column('D:D', 4)
+        worksheet.set_column('E:E', 5)
+        worksheet.set_column('F:I', 4)
+        worksheet.set_column('J:J', 4)
+        worksheet.set_column('K:K', 4)
+        worksheet.set_column(11, 11 + max_sem - 1, 4)  # Semestrlar time
+        worksheet.set_column(11 + max_sem, 11 + (max_sem * 2) - 1, 4)  # Semestrlar credit
+        worksheet.set_column(11 + (max_sem * 2), 11 + (max_sem * 2), 6)  # Jami kredit
 
         # --- HEADER CHIZISH ---
-
-        # 0-QATOR (START_ROW + 0)
         worksheet.merge_range(START_ROW, 0, START_ROW + 5, 0, "T/r", fmt_bold)
-        worksheet.merge_range(START_ROW, 1, START_ROW + 5, 1, "O'quv fanlari, bloklar va faoliyat turlarining nomlari",
-                              fmt_bold)
+        worksheet.merge_range(START_ROW, 1, START_ROW + 5, 1, "O'quv fanlari, bloklar va faoliyat turlarining nomlari", fmt_bold)
         worksheet.merge_range(START_ROW, 2, START_ROW, 10, "Talabaning o'quv yuklamasi, soatlarda", fmt_bold)
-        worksheet.merge_range(START_ROW, 11, START_ROW, 18, "Soatlarning kurs, semestr va haftalar bo'yicha taqsimoti",
-                              fmt_bold)
-        worksheet.merge_range(START_ROW, 19, START_ROW, 26,
-                              "Kreditlarning kurs, semestr va haftalar bo'yicha taqsimoti", fmt_bold)
-        worksheet.merge_range(START_ROW, 27, START_ROW + 5, 27, "Jami kreditlar", fmt_vertical)
+        worksheet.merge_range(START_ROW, 11, START_ROW, 11 + max_sem - 1, "Soatlarning kurs, semestr va haftalar bo'yicha taqsimoti", fmt_bold)
+        worksheet.merge_range(START_ROW, 11 + max_sem, START_ROW, 11 + (max_sem * 2) - 1, "Kreditlarning kurs, semestr va haftalar bo'yicha taqsimoti", fmt_bold)
+        worksheet.merge_range(START_ROW, 11 + (max_sem * 2), START_ROW + 5, 11 + (max_sem * 2), "Jami kreditlar", fmt_vertical)
 
-        # 1-QATOR (START_ROW + 1)
-        # Umumiy yuklama C va D ustunlari BIRLASHADI (Sarlavhada)
+        # 1-QATOR
         worksheet.merge_range(START_ROW + 1, 2, START_ROW + 5, 3, "Umumiy yuklama hajmi", fmt_bold_horizontal)
-
         worksheet.merge_range(START_ROW + 1, 4, START_ROW + 1, 9, "Auditoriya mashg'ulotlari, soatlarda", fmt_bold)
         worksheet.merge_range(START_ROW + 1, 10, START_ROW + 5, 10, "Mustaqil ta'lim", fmt_vertical)
 
@@ -217,40 +206,43 @@ class EducationPlanAdmin(admin.ModelAdmin):
         worksheet.merge_range(START_ROW + 1, 13, START_ROW + 1, 14, "2-kurs", fmt_base)
         worksheet.merge_range(START_ROW + 1, 15, START_ROW + 1, 16, "3-kurs", fmt_base)
         worksheet.merge_range(START_ROW + 1, 17, START_ROW + 1, 18, "4-kurs", fmt_base)
-        worksheet.merge_range(START_ROW + 1, 19, START_ROW + 1, 20, "1-kurs", fmt_base)
-        worksheet.merge_range(START_ROW + 1, 21, START_ROW + 1, 22, "2-kurs", fmt_base)
-        worksheet.merge_range(START_ROW + 1, 23, START_ROW + 1, 24, "3-kurs", fmt_base)
-        worksheet.merge_range(START_ROW + 1, 25, START_ROW + 1, 26, "4-kurs", fmt_base)
+        if max_sem == 10:
+            worksheet.merge_range(START_ROW + 1, 19, START_ROW + 1, 20, "5-kurs", fmt_base)
+        
+        offset = 11 + max_sem
+        worksheet.merge_range(START_ROW + 1, offset, START_ROW + 1, offset + 1, "1-kurs", fmt_base)
+        worksheet.merge_range(START_ROW + 1, offset + 2, START_ROW + 1, offset + 3, "2-kurs", fmt_base)
+        worksheet.merge_range(START_ROW + 1, offset + 4, START_ROW + 1, offset + 5, "3-kurs", fmt_base)
+        worksheet.merge_range(START_ROW + 1, offset + 6, START_ROW + 1, offset + 7, "4-kurs", fmt_base)
+        if max_sem == 10:
+            worksheet.merge_range(START_ROW + 1, offset + 8, START_ROW + 1, offset + 9, "5-kurs", fmt_base)
 
-        # 2-QATOR (START_ROW + 2) - Vertikal turlar
-        headers_aud = ["Jami", "Ma'ruza", "Amaliy", "Labaratoriya", "Seminar", "Kurs ishi"]
+        # 2-QATOR
+        headers_aud = ["Jami", "Ma'ruza", "Amaliy", "Laboratoriya", "Seminar", "Kurs ishi"]
         for i, h in enumerate(headers_aud):
             worksheet.merge_range(START_ROW + 2, 4 + i, START_ROW + 5, 4 + i, h, fmt_vertical)
 
-        worksheet.merge_range(START_ROW + 2, 11, START_ROW + 3, 18, "Semestrlar", fmt_base)
-        worksheet.merge_range(START_ROW + 2, 19, START_ROW + 3, 26, "Semestrlar", fmt_base)
+        worksheet.merge_range(START_ROW + 2, 11, START_ROW + 3, 11 + max_sem - 1, "Semestrlar", fmt_base)
+        worksheet.merge_range(START_ROW + 2, offset, START_ROW + 3, offset + max_sem - 1, "Semestrlar", fmt_base)
 
-        # 4-QATOR (START_ROW + 4) - Raqamlar
-        for i in range(1, 9):
+        # 4-QATOR
+        for i in range(1, max_sem + 1):
             worksheet.write(START_ROW + 4, 10 + i, i, fmt_base)
-            worksheet.write(START_ROW + 4, 18 + i, i, fmt_base)
+            worksheet.write(START_ROW + 4, offset - 1 + i, i, fmt_base)
 
-        # 5-QATOR (START_ROW + 5) - Izohlar
-        worksheet.merge_range(START_ROW + 5, 11, START_ROW + 5, 18,
-                              "Semestrdagi auditoriya mashg'ulotlari haftalarining soni", fmt_base_no_wrap)
-        worksheet.merge_range(START_ROW + 5, 19, START_ROW + 5, 26, "Kredit taqsimoti", fmt_base)
+        # 5-QATOR
+        worksheet.merge_range(START_ROW + 5, 11, START_ROW + 5, 11 + max_sem - 1, "Semestrdagi auditoriya mashg'ulotlari haftalarining soni", fmt_base_no_wrap)
+        worksheet.merge_range(START_ROW + 5, offset, START_ROW + 5, offset + max_sem - 1, "Kredit taqsimoti", fmt_base)
 
-        # 6-QATOR (START_ROW + 6) - Indekslar
+        # 6-QATOR
         worksheet.write(START_ROW + 6, 0, 1, fmt_gray)
         worksheet.write(START_ROW + 6, 1, 2, fmt_gray)
+        worksheet.write(START_ROW + 6, 2, 3, fmt_gray)
+        worksheet.write(START_ROW + 6, 3, 4, fmt_gray)
 
-        # 3 va 4 ALOHIDA
-        worksheet.write(START_ROW + 6, 2, 3, fmt_gray)  # C ustun
-        worksheet.write(START_ROW + 6, 3, 4, fmt_gray)  # D ustun
-
-        # Qolganlar (5 dan boshlab)
         start_idx = 5
-        for i in range(4, 28):  # E(4) dan AB(27) gacha
+        total_cols = 11 + (max_sem * 2) + 1
+        for i in range(4, total_cols):
             worksheet.write(START_ROW + 6, i, start_idx, fmt_gray)
             start_idx += 1
 
@@ -297,9 +289,9 @@ class EducationPlanAdmin(admin.ModelAdmin):
             worksheet.write(row_idx, 8, totals['sem'], fmt_bold)
             worksheet.write(row_idx, 9, 0, fmt_bold)
             worksheet.write(row_idx, 10, totals['ind'], fmt_bold)
-            for c in range(11, 27):
+            for c in range(11, 11 + (max_sem * 2)):
                 worksheet.write(row_idx, c, "", fmt_base)
-            worksheet.write(row_idx, 27, totals['credit'], fmt_bold)
+            worksheet.write(row_idx, 11 + (max_sem * 2), totals['credit'], fmt_bold)
             return row_idx + 1
 
         # Majburiy fanlar qismini chiqarish
@@ -324,15 +316,15 @@ class EducationPlanAdmin(admin.ModelAdmin):
                 worksheet.write(row_idx, 8, item.seminar_hours if item.seminar_hours else "", fmt_base)
                 worksheet.write(row_idx, 9, "", fmt_base)
                 worksheet.write(row_idx, 10, p['ind'], fmt_bold)
-                for i in range(1, 9):
-                    col_h = 11 + (i - 1); col_c = 19 + (i - 1)
+                for i in range(1, max_sem + 1):
+                    col_h = 11 + (i - 1); col_c = 11 + max_sem + (i - 1)
                     if item.semester == i:
                         worksheet.write(row_idx, col_h, item.semester_time, fmt_base)
                         worksheet.write(row_idx, col_c, item.credit, fmt_bold)
                     else:
                         worksheet.write(row_idx, col_h, "", fmt_base)
                         worksheet.write(row_idx, col_c, "", fmt_base)
-                worksheet.write(row_idx, 27, item.credit, fmt_bold)
+                worksheet.write(row_idx, 11 + (max_sem * 2), item.credit, fmt_bold)
                 row_idx += 1
                 counter += 1
 
@@ -358,15 +350,15 @@ class EducationPlanAdmin(admin.ModelAdmin):
                 worksheet.write(row_idx, 8, item.seminar_hours if item.seminar_hours else "", fmt_base)
                 worksheet.write(row_idx, 9, "", fmt_base)
                 worksheet.write(row_idx, 10, p['ind'], fmt_bold)
-                for i in range(1, 9):
-                    col_h = 11 + (i - 1); col_c = 19 + (i - 1)
+                for i in range(1, max_sem + 1):
+                    col_h = 11 + (i - 1); col_c = 11 + max_sem + (i - 1)
                     if item.semester == i:
                         worksheet.write(row_idx, col_h, item.semester_time, fmt_base)
                         worksheet.write(row_idx, col_c, item.credit, fmt_bold)
                     else:
                         worksheet.write(row_idx, col_h, "", fmt_base)
                         worksheet.write(row_idx, col_c, "", fmt_base)
-                worksheet.write(row_idx, 27, item.credit, fmt_bold)
+                worksheet.write(row_idx, 11 + (max_sem * 2), item.credit, fmt_bold)
                 row_idx += 1
                 counter += 1
 
