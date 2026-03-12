@@ -12,6 +12,16 @@ class HourlyRateForm(forms.ModelForm):
         model = HourlyRate
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            rate = self.instance.hourly_rate
+            if rate is not None:
+                if rate % 1 == 0:
+                    self.initial['hourly_rate'] = '{:,.0f}'.format(rate).replace(',', ' ')
+                else:
+                    self.initial['hourly_rate'] = '{:,.2f}'.format(rate).replace(',', ' ')
+
     def clean_hourly_rate(self):
         value = self.cleaned_data.get('hourly_rate')
         if value:
@@ -120,6 +130,18 @@ class MainSalaryForm(forms.ModelForm):
         model = MainSalary
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            fields_to_format = ['base_salary', 'allowance_percent', 'job_rate', 'vacation_pay', 'annual_base_load']
+            for field in fields_to_format:
+                val = getattr(self.instance, field, None)
+                if val is not None:
+                    if val % 1 == 0:
+                        self.initial[field] = '{:,.0f}'.format(val).replace(',', ' ')
+                    else:
+                        self.initial[field] = '{:,.2f}'.format(val).replace(',', ' ')
+
     def clean_money_field(self, field_name):
         value = self.cleaned_data.get(field_name)
         if value:
@@ -189,8 +211,10 @@ class MainSalaryAdmin(admin.ModelAdmin):
 
     def format_money(self, value):
         if value:
+            if value % 1 == 0:
+                return '{:,.0f}'.format(value).replace(',', ' ')
             return '{:,.2f}'.format(value).replace(',', ' ')
-        return "0.00"
+        return "0"
 
     def teacher_name(self, obj): return str(obj.teacher)
     teacher_name.short_description = "O'qituvchi"

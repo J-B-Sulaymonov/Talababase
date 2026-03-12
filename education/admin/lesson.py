@@ -719,7 +719,14 @@ class WorkloadAdmin(admin.ModelAdmin):
                 filter_q = Q()
                 for ps in selected_plans:
                     spec_id = ps.education_plan.specialty_id
-                    filter_q |= Q(specialty_id=spec_id)
+                    course = ps.education_plan.course
+                    edu_form = ps.education_plan.education_form
+                    filter_q |= Q(
+                        specialty_id=spec_id, 
+                        student__course_year=course,
+                        student__education_form=edu_form,
+                        student__status='active'
+                    )
                 if filter_q:
                     groups = Group.objects.filter(filter_q).distinct().order_by('name')
                     for g in groups:
