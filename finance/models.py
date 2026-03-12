@@ -1,81 +1,66 @@
 from django.db import models
+from kadrlar.models import Teacher
 
-class AcademicSalary(models.Model):
-    DEGREE_CHOICES = [
-        ('none', "Yo'q"),
-        ('phd', "PhD"),
-        ('dsc', "DSc"),
-    ]
-
-    # Yangilangan unvonlar ro'yxati
-    TITLE_CHOICES = [
-        ('none', "Yo'q"),
-        ('teacher', "O'qituvchi"),
-        ('senior_teacher', "Katta o'qituvchi"),
-        ('docent', "Dotsent"),
-        ('professor', "Professor"),
-        ('academic', "Akademik"),
-    ]
-
-    JOB_TYPE_CHOICES = [
-        ('main', "Asosiy"),
-        ('hourly', "Soatbay"),
-    ]
-
-    scientific_degree = models.CharField(
-        max_length=10,
-        choices=DEGREE_CHOICES,
-        default='none',
-        verbose_name="Ilmiy daraja"
+class HourlyRate(models.Model):
+    teacher = models.OneToOneField(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='hourly_rate',
+        verbose_name="O'qituvchi"
     )
-
-    scientific_title = models.CharField(
-        max_length=20,  # Unvon nomi uzaygani uchun uzunlikni oshirdim
-        choices=TITLE_CHOICES,
-        default='none',
-        verbose_name="Ilmiy unvon"
-    )
-
-    job_type = models.CharField(
-        max_length=10,
-        choices=JOB_TYPE_CHOICES,
-        default='main',
-        verbose_name="Ish turi"
-    )
-
-    amount = models.DecimalField(
+    
+    hourly_rate = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        verbose_name="1 soat uchun to'lanadigan haq"
+        verbose_name="1 soat uchun haq"
     )
-
-    base_salary = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        verbose_name="Oklad (Asosiy uchun)",
-        blank=True,
-        null=True,
-    )
-
-    allowance = models.DecimalField(
-        max_digits=2,
-        decimal_places=2,
-        verbose_name="Nadbavka (Ustama, Asosiy uchun)",
-        blank = True,
-        null = True,
-    )
-    annual_base_load = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        verbose_name="Yillik asosiy yuklama",
-        blank=True,
-        null=True,
-    )
-
 
     class Meta:
-        verbose_name = "Ilmiy maosh"
-        verbose_name_plural = "Ilmiy maoshlar"
+        verbose_name = "Soatbay stavka"
+        verbose_name_plural = "Soatbay stavkalar"
 
     def __str__(self):
-        return f"{self.get_scientific_title_display()} - {self.get_scientific_degree_display()}"
+        return f"{self.teacher} - {self.hourly_rate} so'm"
+
+class MainSalary(models.Model):
+    teacher = models.OneToOneField(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='main_salary',
+        verbose_name="O'qituvchi (Asosiy)"
+    )
+    
+    base_salary = models.DecimalField("Oklad", max_digits=12, decimal_places=2, default=0)
+    allowance_percent = models.DecimalField("Nadbavka (%)", max_digits=5, decimal_places=2, default=0, help_text="Masalan: 20")
+    job_rate = models.DecimalField("Shtat birligi", max_digits=4, decimal_places=2, default=1.0)
+    vacation_pay = models.DecimalField("Otpusknoy", max_digits=12, decimal_places=2, default=0)
+    annual_base_load = models.DecimalField("Yillik asosiy yuklama", max_digits=10, decimal_places=2, default=600)
+
+    @property
+    def allowance_amount(self):
+        return self.base_salary * (self.allowance_percent / 100)
+
+    @property
+    def monthly_salary(self):
+        return (self.base_salary + self.allowance_amount) * self.job_rate
+
+    @property
+    def annual_salary(self):
+        return self.monthly_salary * 12
+
+    @property
+    def total_annual_salary(self):
+        return self.annual_salary + self.vacation_pay
+
+    @property
+    def calculated_hourly_rate(self):
+        if self.annual_base_load > 0:
+            return self.total_annual_salary / self.annual_base_load
+        return 0
+
+    class Meta:
+        verbose_name = "Asosiy stavka"
+        verbose_name_plural = "Asosiy stavkalar"
+
+    def __str__(self):
+        return f"{self.teacher} - {self.base_salary} so'm (Oklad)"
