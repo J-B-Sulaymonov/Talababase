@@ -9,6 +9,7 @@ media/
 
 # Environment Variables
 .env
+.editorconfig
 
 # Virtual Environment
 .venv/
