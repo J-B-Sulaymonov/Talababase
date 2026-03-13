@@ -24,7 +24,7 @@ class DepartmentMultiFilter(admin.SimpleListFilter):
             # Bo'sh yoki noto'g'ri qiymatlarni olib tashlaymiz
             clean_ids = [x for x in ids if x.isdigit()]
             if clean_ids:
-                return queryset.filter(department__id__in=clean_ids)
+                return queryset.filter(Q(department__id__in=clean_ids) | Q(department2__id__in=clean_ids))
         except ValueError:
             pass
         return queryset
@@ -108,6 +108,40 @@ class ScientificTitleFilter(admin.SimpleListFilter):
         return queryset.filter(scientific_title__in=titles)
 
 
+class WorkTypeFilter(admin.SimpleListFilter):
+    title = "Ish turi"
+    parameter_name = 'work_type'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('permanent', "Doimiy (Shtat)"),
+            ('hourly', "Soatbay"),
+            ('internal', "Ichki o'rindosh"),
+            ('external', "Tashqi o'rindosh"),
+        ]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+            
+        types = value.split(',')
+        q_objects = Q()
+        
+        if 'permanent' in types:
+            q_objects |= Q(teacher_profile__work_type_permanent=True)
+        if 'hourly' in types:
+            q_objects |= Q(teacher_profile__work_type_hourly=True)
+        if 'internal' in types:
+            q_objects |= Q(teacher_profile__work_type_internal_part_time=True)
+        if 'external' in types:
+            q_objects |= Q(teacher_profile__work_type_external_part_time=True)
+            
+        if q_objects:
+            return queryset.filter(q_objects)
+        return queryset
+
+
 # --- EMPLOYEE ADMIN (TO'LIQ) ---
 
 @admin.register(Employee)
@@ -115,7 +149,7 @@ class EmployeeAdmin(admin.ModelAdmin):
     change_list_template = "admin/kadrlar/employee_change_list.html"
 
     # 1. RO'YXAT KO'RINISHI (List Display)
-    list_display = ('get_full_name', 'department', 'get_positions_display',
+    list_display = ('get_full_name', 'get_departments_display', 'get_positions_display',
                     'get_scientific_degree_display', 'get_scientific_title_display',
                     'status_badge', 'is_teacher_icon')
 
@@ -127,6 +161,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'positions',  # Lavozim bo'yicha filter (M2M)
         ScientificDegreeFilter,  # Yangilangan filter
         ScientificTitleFilter,  # Yangilangan filter
+        WorkTypeFilter, # Yangi filter: Doimiy / Soatbay va h.k.
         'approved',
         RoleListFilter
     )
@@ -143,7 +178,7 @@ class EmployeeAdmin(admin.ModelAdmin):
                        'photo')
         }),
         ('Ish joyi va Ilmiy Salohiyat', {
-            'fields': ('department', 'positions', 'scientific_degree', 'scientific_title', 'is_teacher', 'order')
+            'fields': ('department', 'department2', 'positions', 'scientific_degree', 'scientific_title', 'is_teacher', 'order')
         }),
         ('HR Tasdiq', {
             'fields': ('hired_at', 'status', 'approved', 'archived')
@@ -255,7 +290,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         field_map = {
             'first_name': 'Ism', 'last_name': 'Familiya', 'middle_name': 'Otasining ismi',
             'passport_info': 'Pasport', 'pid': 'JSHSHIR', 'birth_date': 'Tug‘ilgan sana',
-            'gender': 'Jinsi', 'department': "Bo‘lim / Kafedra", 'positions': 'Lavozimi',
+            'gender': 'Jinsi', 'department': "Bo‘lim / Kafedra", 'department2': "Qo'shimcha Bo'lim", 'positions': 'Lavozimi',
             'status': 'Holati', 'hired_at': 'Ishga kirgan sana',
             'scientific_degree': 'Ilmiy daraja', 'scientific_title': 'Ilmiy unvon',
             'is_teacher': 'Roli', 'approved': 'HR Tasdiq'
@@ -287,6 +322,8 @@ class EmployeeAdmin(admin.ModelAdmin):
                             val = ", ".join([p.name for p in obj.positions.all()])
                         elif field == 'department':
                             val = obj.department.name if obj.department else "-"
+                        elif field == 'department2':
+                            val = obj.department2.name if obj.department2 else "-"
                         elif field == 'status':
                             val = obj.get_status_display()
                         elif field == 'gender':
@@ -337,6 +374,16 @@ class EmployeeAdmin(admin.ModelAdmin):
         return ", ".join([p.name for p in obj.positions.all()])
 
     get_positions_display.short_description = "Lavozimlar"
+
+    def get_departments_display(self, obj):
+        depts = []
+        if obj.department:
+            depts.append(obj.department.name)
+        if obj.department2:
+            depts.append(obj.department2.name)
+        return " / ".join(depts) if depts else "-"
+
+    get_departments_display.short_description = "Kafedra/Bo'lim"
 
     # 2. Ilmiy Daraja (Wrapper)
     @admin.display(description="Ilmiy Daraja", ordering='scientific_degree')
@@ -412,6 +459,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         readonly = ['hired_at', 'status', 'approved', 'archived', 'created_by', 'order']
         if obj:
             readonly.append('department')
+            readonly.append('department2')
             if obj.approved:
                 all_fields = [f.name for f in self.model._meta.fields]
                 return all_fields
@@ -428,6 +476,9 @@ class EmployeeAdmin(admin.ModelAdmin):
                     form.base_fields['department'].initial = dept.id
                     form.base_fields[
                         'department'].help_text = f"Siz faqat o'zingizning bo'limingiz ({dept.name}) ga xodim qo'sha olasiz."
+            if 'department2' in form.base_fields:
+                form.base_fields['department2'].disabled = True
+                form.base_fields['department2'].required = False
         return form
 
     # --- KARTA KO'RISH VIEW ---
@@ -471,7 +522,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if is_hr_admin(request.user) or is_edu_admin(request.user):
             return qs.filter(archived=False)
-        return qs.filter(department__head_manager=request.user, archived=False)
+        return qs.filter(Q(department__head_manager=request.user) | Q(department2__head_manager=request.user), archived=False)
 
     # --- STATISTIKA (ChangeList View) ---
     def changelist_view(self, request, extra_context=None):
@@ -494,9 +545,16 @@ class EmployeeAdmin(admin.ModelAdmin):
 
         if hasattr(response, 'context_data'):
             try:
-                base_qs = self.get_queryset(request)
-                # Faqat faol va arxivlanmagan xodimlarni olamiz
-                active_qs = base_qs.filter(status='active', archived=False)
+                cl = response.context_data.get('cl')
+                if cl:
+                    base_qs = cl.queryset
+                else:
+                    base_qs = self.get_queryset(request)
+                    
+                # Biz filtrlangan querysetni (base_qs) olamiz. 
+                # Oldingi kodda faqat 'status=active' bo'yicha cheklangan edi. 
+                # cl.queryset o'zida allaqachon URL dagi filtrlarni mujassam etgan.
+                active_qs = base_qs.filter(archived=False)
 
                 # --- STATISTIKA KODI (O'zgarmaydi) ---
                 def get_gender_stats(queryset):
@@ -582,7 +640,11 @@ class EmployeeAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         if is_hr_admin(request.user): return True
-        if obj and obj.department and obj.department.head_manager == request.user: return True
+        if obj:
+            if obj.department and obj.department.head_manager == request.user:
+                return True
+            if obj.department2 and obj.department2.head_manager == request.user:
+                return True
         return False
 
     def has_delete_permission(self, request, obj=None):

@@ -50,7 +50,7 @@ class DepartmentAdmin(admin.ModelAdmin):
     head_manager_col.short_description = "Rahbar"
 
     def styled_employee_count(self, obj):
-        count = obj.employees.filter(archived=False).count()
+        count = Employee.objects.filter(Q(department=obj) | Q(department2=obj), archived=False).count()
         if count == 0:
             url = reverse("admin:kadrlar_employee_changelist")
             query = urlencode({'department__id': obj.id})
@@ -75,7 +75,7 @@ class DepartmentAdmin(admin.ModelAdmin):
                 qs = cl.queryset
 
                 # Arxivlanmagan barcha xodimlarni olamiz (ushbu filtrlangan kafedralar bo'yicha)
-                all_employees = Employee.objects.filter(department__in=qs, archived=False)
+                all_employees = Employee.objects.filter(Q(department__in=qs) | Q(department2__in=qs), archived=False).distinct()
 
                 stats = {
                     'total_depts': qs.count(),

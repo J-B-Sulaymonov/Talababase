@@ -126,6 +126,10 @@ class Employee(models.Model):
         Department, verbose_name="Kafedra/Bo'lim",
         null=True, blank=True, on_delete=models.SET_NULL, related_name='employees'
     )
+    department2 = models.ForeignKey(
+        Department, verbose_name="Qo'shimcha Kafedra/Bo'lim",
+        null=True, blank=True, on_delete=models.SET_NULL, related_name='employees2'
+    )
     # position = models.CharField("Lavozim", max_length=200, blank=True)
     positions = models.ManyToManyField(
         Position,
